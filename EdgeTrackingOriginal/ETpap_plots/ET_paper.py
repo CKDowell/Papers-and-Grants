@@ -10,8 +10,9 @@ import numpy as np
 import matplotlib.pyplot as plt 
 from analysis_funs.CX_analysis_col import CX_a
 import pandas as pd
-from Utils.utils_general import utils_general as ug
+from Utilities.utils_general import utils_general as ug
 from scipy.stats import circmean, circstd
+from Utilities.utils_plotting import uplt
 #%%
 class ET_paper:
     def __init__(self,datadir,regions=['eb','fsb_upper','fsb_lower']):
@@ -19,8 +20,7 @@ class ET_paper:
         self.colours =np.array([[81,156,204],[84,39,143],[0,0,0],[237,30,36],[6,149,207]])/255
         self.colours2 =np.array([[106,207,246],[237,30,36],[168,170,173],[6,149,207]])/255
     def example_trajectory(self,tstart,tend,boxes=[]):
-        colours = np.array([[106,207,246],[237,30,36],[168,170,173],[6,149,207]])/255
-        
+        colours = np.array([[106,207,246],[237,30,36],[204,204,204],[6,149,207]])/255
         ft2 = self.cxa.ft2
         x = ft2['ft_posx'].to_numpy()
         y = ft2['ft_posy'].to_numpy()
@@ -70,33 +70,42 @@ class ET_paper:
         yj = y[jn]
         yj = np.append(yj,y[-1])
         plt.fill()
-        tj = 0
-        x1 = 0+5+tj
-        x2 = 0-5+tj
-        y1 = 0
-        y2 = yj[0]
-        xvec = np.array([x1,x2,x2,x1])
-        yvec = [y1,y1,y2,y2]
         
-        cents = [-630,-420,-210, 0,210,420,630]
-        
-        plt.fill(xvec,yvec,color=colours[2,:])
-        for c in cents:
-            plt.fill(xvec+c,yvec,color=colours[2,:])
-        for i,j in enumerate(jn):
-            
-            tj = jumps[j]
-            print(tj)
-            x1 = 0+5+tj
-            x2 = 0-5+tj
-            y1 = yj[i]
-            y2 = yj[i+1]
-            xvec = np.array([x1,x2,x2,x1])
+        plume_cents = [-630,-420,-210,0,210,420,630]
+        for p in plume_cents:
+            tj = 0
+            x1 = p+5+tj
+            x2 = p-5+tj
+            y1 = 0
+            y2 = yj[0]
+            try:
+                xvec = np.array([x1,x2,x2,x1])+jumps[jn[0]-1]
+            except:
+                xvec = np.array([x1,x2,x2,x1])
             yvec = [y1,y1,y2,y2]
+            
+            
+            cents = np.arange(0,np.max(np.abs(x)),210)
+            cents = np.append(np.flipud(-cents[1:]),cents)
+           # cents = [-1050,-840,-630,-420,-210, 0,210,420,630,840,1050]
+            
+            plt.fill(xvec,yvec,color=colours[2,:])
             for c in cents:
                 plt.fill(xvec+c,yvec,color=colours[2,:])
-                plt.plot([xvec[1],xvec[1]-20],yvec[0:2],color=colours[3,:],linewidth=0.75)
-                plt.scatter(xvec[1]-20,yvec[0],color=colours[3,:],marker='<')
+            for i,j in enumerate(jn):
+                
+                tj = jumps[j]
+                print(tj)
+                x1 = p+5+tj
+                x2 = p-5+tj
+                y1 = yj[i]
+                y2 = yj[i+1]
+                xvec = np.array([x1,x2,x2,x1])
+                yvec = [y1,y1,y2,y2]
+                for c in cents:
+                    plt.fill(xvec+c,yvec,color=colours[2,:])
+                    plt.plot([xvec[1],xvec[1]-20],yvec[0:2],color=colours[3,:],linewidth=0.75)
+                    plt.scatter(xvec[1]-20,yvec[0],color=colours[3,:],marker='<')
 
         
 
@@ -124,35 +133,193 @@ class ET_paper:
             dx2 = ug.find_nearest(tt,b[1])
             y1 = y[dx1]
             y2 = y[dx2]
+            x1 = y[dx1]
+            plt.plot(np.array([-30,30,30,-30,-30])+x1,[y1,y1,y2,y2,y1],color='k',linestyle='--',linewidth=0.75)
+        
+        
+        plt.show()
+    def example_trajectory_arrows(self,tstart,tend,colours,samp_period=10,boxes=[],regions=['eb','fsb_upper']):
+        self.example_trajectory(tstart,tend)
+        ft2 = self.cxa.ft2
+        x = ft2['ft_posx'].to_numpy()
+        y = ft2['ft_posy'].to_numpy()
+        x,y = self.cxa.fictrac_repair(x,y)
+        ins = ft2['instrip'].to_numpy()
+        tt = self.cxa.pv2['relative_time'].to_numpy()
+        tdx = np.logical_and( tt>tstart,tt<tend)
+        inplume = ins>0
+        st  = np.where(inplume)[0][0]
+        x = x-x[st-1]
+        y = y-y[st-1]
+          
+        x = x[tdx]
+        y = y[tdx]
+        scale =10
+        for ir,r in enumerate(regions):
+            tphase = self.cxa.pdat['offset_'+r+'_phase'].to_numpy()[tdx]
+            dx = np.arange(0,len(tphase),samp_period*10)
+            for d in dx:
+                tx = np.sin(tphase[d])*scale
+                ty = np.cos(tphase[d])*scale
+                px = np.array([0,tx])+x[d]
+                py = np.array([0,ty])+y[d]
+                plt.plot(px,py,color=colours[ir,:])
+        
+    def example_trajectory_pva(self,tstart,tend,boxes=[],region='fsb_upper',cmap='coolwarm',crange=[-1,1]):
+        colours = np.array([[106,207,246],[237,30,36],[168,170,173],[6,149,207]])/255
+        ft2 = self.cxa.ft2
+        x = ft2['ft_posx'].to_numpy()
+        y = ft2['ft_posy'].to_numpy()
+        x,y = self.cxa.fictrac_repair(x,y)
+        ins = ft2['instrip'].to_numpy()
+        jumps = ft2['jump'].to_numpy()
+        jumps2 = self.cxa.get_jumps()
+        
+        tt = self.cxa.pv2['relative_time'].to_numpy()
+        wedges= self.cxa.pdat['wedges_'+region]
+        pva = ug.get_pvas(wedges)
+        
+        tdx = np.logical_and( tt>tstart,tt<tend)
+        tdxw = np.where(tdx)[0]
+        jkdx = np.logical_and(jumps2[:,1]>tdxw[0],jumps2[:,1]<tdxw[-1])
+        jumps2 = jumps2[jkdx,:]
+        jumps2 = jumps2-tdxw[0]
+        print(jumps2)
+        
+        inplume = ins>0
+        st  = np.where(inplume)[0][0]
+        x = x-x[st-1]
+        y = y-y[st-1]
+          
+        x = x[tdx]
+        y = y[tdx]
+        pva = pva[tdx]
+        ins = ins[tdx]
+        jumps = jumps[tdx]
+        inplume = inplume[tdx]
+        
+        jumps = jumps-np.mod(jumps,3)
+        jd = np.diff(jumps)
+        jn = np.where(np.abs(jd)>0)[0]+1
+        print(jumps[jn])
+        jkeep = np.where(np.diff(jn)>1)[0]
+       
+       #jn = jn[jkeep]
+        print(jumps[jn])
+        #x,y = self.fictrac_repair(x,y)
+        
+        
+        xrange = np.max(x)-np.min(x)
+        yrange = np.max(y)-np.min(y)
+        
+        mrange = np.max([xrange,yrange])+100
+        y_med = yrange/2
+        x_med = xrange/2
+        ylims = [y_med-mrange/2, y_med+mrange/2]
+   
+        xlims = [x_med-mrange/2, x_med+mrange/2]
+
+        plt.rcParams['ps.fonttype'] = 42 
+        fig = plt.figure(figsize=(15,15))
+        
+        ax = fig.add_subplot(111)
+        #ax.scatter(x[inplume],y[inplume],color=[0.5, 0.5, 0.5])
+        
+        yj = y[jn]
+        yj = np.append(yj,y[-1])
+        plt.fill()
+        tj = 0
+        x1 = 0+5+tj
+        x2 = 0-5+tj
+        y1 = 0
+        y2 = yj[0]
+        xvec = np.array([x1,x2,x2,x1])
+        yvec = [y1,y1,y2,y2]
+        
+        cents = [-630,-420,-210, 0,210,420,630]
+        
+        plt.fill(xvec,yvec,color=colours[2,:])
+        for c in cents:
+            plt.fill(xvec+c,yvec,color=colours[2,:])
+        for i,j in enumerate(jumps2):
+            
+            tj = jumps[j[1]]
+            print(tj)
+            x1 = 0+5+tj
+            x2 = 0-5+tj
+            y1 = yj[i]
+            y2 = yj[i+1]
+            xvec = np.array([x1,x2,x2,x1])
+            yvec = [y1,y1,y2,y2]
+            for c in cents:
+                plt.fill(xvec+c,yvec,color=colours[2,:])
+                plt.plot([xvec[1],xvec[1]-20],yvec[0:2],color=colours[3,:],linewidth=0.75)
+                plt.scatter(xvec[1]-20,yvec[0],color=colours[3,:],marker='<')
+
+            jbef = np.arange(j[1]-10,j[1])
+            jaf = np.arange(j[2]-10,j[2])
+            plt.plot(x[jbef],y[jbef],color='g',linewidth=5)
+            plt.plot(x[jaf],y[jaf],color='g',linewidth=5)
+        # plot in and out plume
+        
+        uplt.coloured_line_simple(x,y,pva,cmap,crange[0],crange[1])
+        # plt.plot(x,y,color=colours[0,:],linewidth=0.5)
+        pstart,psize = ug.find_blocks(inplume)
+        # for i,p in enumerate(pstart):
+        #     plt.plot(x[p:p+psize[i]],y[p:p+psize[i]],color=colours[1,:],linewidth=0.75)
+
+        plt.xlim(xlims)
+        plt.ylim(ylims)
+        plt.xlabel('x position (mm)')
+        plt.ylabel('y position (mm)')
+        x1 = np.min(x)-30
+        x2 = np.max(x)+30
+        plt.xlim([x1,x2])
+        plt.ylim([min(y),max(y)])
+        ax = plt.gca()
+        ax.set_aspect('equal', adjustable='box')
+        for b in boxes:
+            dx1 = ug.find_nearest(tt,b[0])
+            print(dx1)
+            dx2 = ug.find_nearest(tt,b[1])
+            y1 = y[dx1]
+            y2 = y[dx2]
             plt.plot([-30,30,30,-30,-30],[y1,y1,y2,y2,y1],color='k',linestyle='--',linewidth=0.75)
         
         
         plt.show()
-    def example_heatmaps(self,tstart,tend,regions=['eb','fsb_upper'],cmaps=['Greys','Blues']):
+    def example_heatmaps(self,tstart,tend,regions=['eb','fsb_upper'],cmaps=['Greys','Blues'],yoking=True,
+                         colours = np.array([[0,0,0],[81,156,204],[237,30,36],[6,149,207]])/255 ):
         pdat = self.cxa.pdat
         tt = self.cxa.pv2['relative_time'].to_numpy()
         tdx = np.logical_and( tt>tstart,tt<tend)
         for i,r in enumerate(regions):
             plt.figure(figsize=(1,20))
-            dat = pdat['wedges_offset_'+r][tdx,:]
+            if yoking:
+                dat = pdat['wedges_offset_'+r][tdx,:]
+            else:
+                dat = pdat['wedges_'+r][tdx,:]
             dat = np.flipud(dat)
             
             plt.imshow(dat,cmap=cmaps[i],interpolation='None',aspect='auto',vmin=0,vmax=1)
         
         plt.figure(figsize=(1,20))
-        colours = np.array([[0,0,0],[81,156,204],[237,30,36],[6,149,207]])/255
+        
         heading = self.cxa.ft2['ft_heading'].to_numpy()
         heading = heading[tdx]*180/np.pi
         y = tt[tdx]
         y = y-y[0]
         #plt.plot(heading,y,color='k')
         for i,r in enumerate(regions):
-            x = pdat['offset_'+r+'_phase'].to_numpy()
+            if yoking:
+                x = pdat['offset_'+r+'_phase'].to_numpy()
+            else:
+                x = pdat['phase_'+r]
             x = x[tdx]
             x = 180*x/np.pi
             
             
-            plt.plot(x,y,color=colours[i,:])
+            plt.scatter(x,y,color=colours[i,:],s=5)
         
         plt.xlim([-180,180])
         plt.ylim([min(y),max(y)])
@@ -161,7 +328,7 @@ class ET_paper:
         plt.figure(figsize=(1,20))
         x = self.cxa.ft2['instrip'][tdx].to_numpy()
         #plt.plot(x,y,color=colours[2,:])
-        plt.fill_betweenx(y,x.astype('float'),np.zeros_like(x,dtype='float'),color=colours[2,:],step='mid',linewidth=0)
+        plt.fill_betweenx(y,x.astype('float'),np.zeros_like(x,dtype='float'),color=colours[2,:],step='mid',linewidth=0, edgecolor='none')
         jumps = self.cxa.get_jumps(time_threshold=10000)
         jumps = jumps[:,1]
         twhere = np.where(tdx)[0]
@@ -280,7 +447,7 @@ class ET_paper:
         elif dataperiod =='pre air anemotaxis':
             ins = ft2['instrip'].to_numpy()
             from rdp import rdp
-            from Utils.utils_general import utils_general as utg
+            from Utilities.utils_general import utils_general as utg
             x = ft2['ft_posx'].to_numpy()
             y = ft2['ft_posy'].to_numpy()
             
@@ -341,7 +508,7 @@ class ET_paper:
                 
         return tdx
         
-    def phase_time(self,t_length,regions = ['eb','fsb_upper']):
+    def phase_time(self,t_length,regions = ['eb','fsb_upper'],rebase=False):
         jumps = self.cxa.get_jumps()
         tbins = t_length*10
         phases = np.empty((tbins,4,len(jumps)))
@@ -357,14 +524,87 @@ class ET_paper:
                 #print(jrange)
             for ir, r in enumerate(regions):
                 tphase = -self.cxa.pdat['offset_'+r+'_phase'].to_numpy()*self.cxa.side
-                phases[-len(jrange):,ir,i] = tphase[jrange]
+                
+                
+                if rebase:
+                    rdx = np.arange(j[1]-1,j[1]+5)
+                    toff = -self.cxa.pdat['offset_'+r+'_phase'].to_numpy()[rdx]*self.cxa.side
+                    toff = circmean(toff,low=-np.pi,high=np.pi)
+                    phases[-len(jrange):,ir,i] = ug.circ_subtract(tphase[jrange],toff)
+                else: 
+                    phases[-len(jrange):,ir,i] = tphase[jrange]
+                
             tphase = -self.cxa.ft2['ft_heading'].to_numpy()*self.cxa.side
             phases[0:len(jrange),2,i] = tphase[jrange]
             
         phases[:,3,:] = phases[:,1,:]-phases[:,0,:]
         #phases = np.flipud(phases)
         return phases
-      
+    
+    def phase_time_amp(self,t_length,regions = ['eb','fsb_upper']):
+        # from plume entry
+        jumps = self.cxa.get_jumps()
+        tbins = t_length*10
+        phases = np.empty((tbins,len(regions),len(jumps)))*np.nan
+        amps = np.empty((tbins,len(regions),len(jumps)))*np.nan
+        for ir,r in enumerate(regions):
+            phase = self.cxa.pdat['offset_'+r+'_phase'].to_numpy()*-1*self.cxa.side
+            amp = np.mean(self.cxa.pdat['wedges_'+r],axis=1)
+            for i,j in enumerate(jumps):
+                dx = np.arange(max(j[2]-tbins,j[1]),j[2])
+               
+                dx2 = dx-np.min(dx)
+                phases[dx2,ir,i] = np.flipud(phase[dx])
+                amps[dx2,ir,i] = np.flipud(amp[dx])
+                
+        return phases,amps
+    
+    def phase_time_leave_amp(self,t_length,regions=['eb','fsb_upper']):
+        # from plume exit
+        jumps = self.cxa.get_jumps()
+        tbins = t_length*10
+        phases = np.empty((tbins,len(regions),len(jumps)))*np.nan
+        amps = np.empty((tbins,len(regions),len(jumps)))*np.nan
+        for ir,r in enumerate(regions):
+            phase = self.cxa.pdat['offset_'+r+'_phase'].to_numpy()*-1*self.cxa.side
+            amp = np.mean(self.cxa.pdat['wedges_'+r],axis=1)
+            for i,j in enumerate(jumps):
+                dx = np.arange(j[1],min(j[2],j[1]+tbins))
+               
+                dx2 = dx-j[1]
+                phases[dx2,ir,i] = phase[dx]
+                amps[dx2,ir,i] = amp[dx]
+                
+        return phases,amps
+            
+        
+        
+    def phase_time_inside(self,t_length,regions=['eb','fsb_upper']):
+        jumps = self.cxa.get_jumps()
+        tbins = t_length*10
+        phases = np.empty((tbins,4,len(jumps)))
+        inplume = self.cxa.ft2['instrip'].to_numpy()
+        ipdiff = np.diff(inplume)
+        exits = np.where(ipdiff<0)[0]
+        #print(exits)
+        for i,j in enumerate(jumps):
+            jend = j[2]
+            #print(i)
+            next_exit = np.min(exits[exits>jend])
+            jrange = np.arange(jend,next_exit)
+            #print(jrange)
+            if len(jrange)>tbins:
+                jrange = jrange[:tbins]
+            for ir,r in enumerate(regions):
+                tphase = -self.cxa.pdat['offset_'+r+'_phase'].to_numpy()*self.cxa.side
+                phases[:len(jrange),ir,i] = tphase[jrange]
+            tphase = -self.cxa.ft2['ft_heading'].to_numpy()*self.cxa.side
+            phases[0:len(jrange),2,i] = tphase[jrange]
+            
+        phases[:,3,:] = phases[:,1,:]-phases[:,0,:]
+        #phases = np.flipud(phases)
+        return phases
+                
     def amp_time(self,t_length,regions = ['eb','fsb_upper']):
         jumps = self.cxa.get_jumps()
         tbins = t_length*10
@@ -390,14 +630,21 @@ class ET_paper:
         return amps
         
         
-    def trajectory_mean(self,bins = 100,regions=['eb','fsb_upper','ft_heading']):
+    def trajectory_mean(self,bins = 100,regions=['eb','fsb_upper','ft_heading'],time_threshold=60,time_threshold2=0,min_inplume=5):
         
         print(regions)
-        jumps = self.cxa.get_jumps()
-        retphase = np.zeros((bins,3,len(jumps)))
-        levphase = np.zeros((bins,3,len(jumps)))
+        jumps = self.cxa.get_jumps(time_threshold=time_threshold,time_threshold2=time_threshold2)
+        inplume = jumps[:,1]-jumps[:,0]
+        jdx = inplume>=min_inplume
+        jumps = jumps[jdx,:]
+        
+        retphase = np.zeros((bins,len(regions),len(jumps)))
+        levphase = np.zeros((bins,len(regions),len(jumps)))
         retxy = np.zeros((bins,2,len(jumps)))
         levxy = np.zeros((bins,2,len(jumps)))
+        retamp = np.zeros( (bins,2,len(regions),len(jumps)))
+        levamp = np.zeros((bins,2,len(regions),len(jumps)))
+        
         newtime = np.linspace(0,1,bins)
         jseries = self.cxa.ft2['jump'].to_numpy()
         
@@ -409,6 +656,13 @@ class ET_paper:
         x = x-x[inst]
         y = y-y[inst]
         x = -x*self.cxa.side
+        pva = np.zeros((len(x),len(regions)))
+        mnflr = np.zeros((len(x),len(regions)))
+        
+        for ir,r in enumerate(regions):
+            pva[:,ir] = ug.get_pvas(self.cxa.pdat['wedges_'+r])
+            mnflr[:,ir] = np.mean(self.cxa.pdat['wedges_'+r],axis=1)
+        
         for i,j in enumerate(jumps):
             bdx = np.arange(j[0],j[1])
             adx = np.arange(j[1],j[2])
@@ -435,25 +689,35 @@ class ET_paper:
                     phase = self.cxa.pdat['offset_'+p+'_phase'].to_numpy()
                 else:
                     phase = self.cxa.ft2[p].to_numpy()
+                    
+                    
                 phase = -phase*self.cxa.side
                 rp = phase[adx]
                 lp = phase[bdx] 
                 
+                rpva = pva[adx,ip]
+                lpva = pva[bdx,ip]
                 
+                rmnflr = mnflr[adx,ip]
+                lmnflr = mnflr[bdx,ip]
                 
                 
                 oldtime = np.linspace(0,1,len(rp))
                 retphase[:,ip,i] = np.interp(newtime,oldtime,rp)
-                
+                retamp[:,0,ip,i] = np.interp(newtime,oldtime,rpva)
+                retamp[:,1,ip,i] = np.interp(newtime,oldtime,rmnflr)
                 
                 oldtime = np.linspace(0,1,len(lp))
                 levphase[:,ip,i] = np.interp(newtime,oldtime,lp)
+                levamp[:,0,ip,i] = np.interp(newtime,oldtime,lpva)
+                levamp[:,1,ip,i] = np.interp(newtime,oldtime,lmnflr)
                 
             
             
         phases = np.append(levphase,retphase,axis=0)
         trajs = np.append(levxy,retxy,axis=0)
-        return phases,trajs
+        amps = np.append(levamp,retamp,axis=0)
+        return phases,trajs,amps
     
     def plt_tmp(self,scalar=1,bins=100,phase_num=10):
         colours2 = self.colours2

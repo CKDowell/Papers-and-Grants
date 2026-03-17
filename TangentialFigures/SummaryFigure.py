@@ -17,7 +17,9 @@ from analysis_funs.CX_imaging import CX
 from analysis_funs.CX_analysis_tan import CX_tan
 plt.rcParams['pdf.fonttype'] = 42 
 savedir = "Y:\\Data\\FCI\\FCI_summaries\\TangentialSummaries"
-from Utils.utils_general import utils_general as ugn
+from Utilities.utils_general import utils_general as ugn
+data = ugn.load_pick(os.path.join(savedir,'TN_mean_jump.pickle'))
+
 #%% FB4P_b
 plt.close('all')
 datadirs = [
@@ -27,6 +29,7 @@ datadirs = [
      "Y:\Data\FCI\\Hedwig\\FB4P_b_SS60296_sytGC7f\\240805\\f1\\Trial3",# 2 jumps
     # "Y:\Data\FCI\\Hedwig\\FB4P_b_SS60296_sytGC7f\\240909\\f1\\Trial5",# 1 jump
        "Y:\Data\FCI\\Hedwig\\FB4P_b_SS60296_sytGC7f\\240906\\f2\\Trial2",# 2 jumps
+       r"Y:\Data\FCI\Hedwig\FB4P_b_SS60296\250311\f1\Trial1"
       ]
 
 bins = 100
@@ -38,7 +41,7 @@ cart_fb4pb = np.empty((timecourse*10,len(datadirs)))
 #     cxt = CX_tan(datadir)
 #     j = cxt.get_jumps()
 #     print(len(j))
-
+alldat = {}
 for i,datadir in enumerate(datadirs):
     
     print(datadir)
@@ -48,6 +51,8 @@ for i,datadir in enumerate(datadirs):
     #trj,ca = cxt.fc.mean_traj_nF()
     
     ca,trj = cxt.mean_traj_jump(bins=bins)
+    alldat.update({'ca_' +str(i):ca,
+                   'traj_'+str(i):trj})
     
     
     traj_fb4pb[:,:,i] = np.mean(trj,axis=2)
@@ -63,7 +68,7 @@ for i,datadir in enumerate(datadirs):
     #savename = os.path.join(savedir,'FB4P_b_Ca_traj' +str(i)+'.pdf')
    # plt.savefig(savename)
 
-savedict = {'ca_fb4pb': ca_fb4pb,'traj_fb4pb':traj_fb4pb,'ca_fb4pb_realtime':cart_fb4pb}
+savedict = {'ca_fb4pb': ca_fb4pb,'traj_fb4pb':traj_fb4pb,'ca_fb4pb_realtime':cart_fb4pb,'fb4pb_alldat':alldat}
 
 # FB4R
 plt.close('all')
@@ -76,6 +81,7 @@ datadirs = ["Y:\Data\FCI\\Hedwig\\SS61646_FB4R\\240828\\f3\\Trial1",
 traj_fb4r = np.empty((bins*2,2,len(datadirs)))
 ca_fb4r = np.empty((bins*2,len(datadirs)))
 cart_fb4r = np.empty((timecourse*10,len(datadirs)))
+alldat = {}
 for i,datadir in enumerate(datadirs):
     #plt.figure()
     xoffset= 0
@@ -84,6 +90,8 @@ for i,datadir in enumerate(datadirs):
     ca,trj = cxt.mean_traj_jump(bins=bins)
     traj_fb4r[:,:,i] = np.mean(trj,axis=2)
     ca_fb4r[:,i] = np.mean(ca,axis=1)
+    alldat.update({'ca_' +str(i):ca,
+                   'traj_'+str(i):trj})
     
     ct = cxt.mean_ca_realtime_jump(timecourse)
     
@@ -96,7 +104,7 @@ for i,datadir in enumerate(datadirs):
     # savename = os.path.join(savedir,'FB4R_Ca_traj' +str(i)+'.pdf')
     # plt.savefig(savename)
 
-savedict.update({'ca_fb4r': ca_fb4r,'traj_fb4r':traj_fb4r,'ca_fb4r_realtime':cart_fb4r})
+savedict.update({'ca_fb4r': ca_fb4r,'traj_fb4r':traj_fb4r,'ca_fb4r_realtime':cart_fb4r,'fb4r_alldat':alldat})
 
 
 # FB5I
@@ -109,7 +117,7 @@ datadirs = [
 traj_fb5i = np.empty((bins*2,2,len(datadirs)))
 ca_fb5i = np.empty((bins*2,len(datadirs)))
 cart_fb5I = np.empty((timecourse*10,len(datadirs)))
-
+alldat ={}
 for i,datadir in enumerate(datadirs):
    # plt.figure()
     xoffset= 0
@@ -117,6 +125,8 @@ for i,datadir in enumerate(datadirs):
     
     ca,trj = cxt.mean_traj_jump(bins=bins)
     #cxt.fc.jump_heat(np.mean(trj,axis=2),np.mean(ca,axis=1),xoffset=0)
+    alldat.update({'ca_' +str(i):ca,
+                   'traj_'+str(i):trj})
     
     traj_fb5i[:,:,i] = np.mean(trj,axis=2)
     ca_fb5i[:,i] = np.mean(ca,axis=1)
@@ -131,7 +141,7 @@ for i,datadir in enumerate(datadirs):
     # savename = os.path.join(savedir,'FB5I_Ca_traj' +str(i)+'.pdf')
     # plt.savefig(savename)
 
-savedict.update({'ca_fb5i': ca_fb5i,'traj_fb5i':traj_fb5i,'ca_fb5i_realtime':cart_fb5I})
+savedict.update({'ca_fb5i': ca_fb5i,'traj_fb5i':traj_fb5i,'ca_fb5i_realtime':cart_fb5I,'fb5i_alldat':alldat})
 
 
 # FB4X
@@ -143,7 +153,7 @@ datadirs = [
 traj_fb4x = np.empty((bins*2,2,len(datadirs)))
 ca_fb4x = np.empty((bins*2,len(datadirs)))
 cart_fb4x = np.empty((timecourse*10,len(datadirs)))
-
+alldat = {}
 for i,datadir in enumerate(datadirs):
     #plt.figure()
     xoffset= 0
@@ -155,6 +165,9 @@ for i,datadir in enumerate(datadirs):
     traj_fb4x[:,:,i] = np.mean(trj,axis=2)
     ca_fb4x[:,i] = np.mean(ca,axis=1)
     
+    alldat.update({'ca_' +str(i):ca,
+                   'traj_'+str(i):trj})
+    
     ct = cxt.mean_ca_realtime_jump(timecourse)
     #ct[np.abs(ct)==0.0] = np.nan
     x = np.nanmean(ct,axis=1)
@@ -165,7 +178,7 @@ for i,datadir in enumerate(datadirs):
     # savename = os.path.join(savedir,'FB4X_Ca_traj' +str(i)+'.pdf')
     # plt.savefig(savename)
 
-savedict.update({'ca_fb4x': ca_fb4x,'traj_fb4x':traj_fb4x,'ca_fb4x_realtime': cart_fb4x})
+savedict.update({'ca_fb4x': ca_fb4x,'traj_fb4x':traj_fb4x,'ca_fb4x_realtime': cart_fb4x,'fb4x_alldat':alldat})
 
 # Save data as pickle
 
@@ -174,6 +187,7 @@ u.save_pick(savedict,os.path.join(savedir,'TN_mean_jump.pickle'))
 data = u.load_pick(os.path.join(savedir,'TN_mean_jump.pickle'))
 
 #%% plot max
+bins = 100
 u = ugn
 plt.close('all')
 colours2 = np.array([[106,207,246],[237,30,36],[168,170,173],[6,149,207]])/255
@@ -227,24 +241,81 @@ colours = np.array([
     [155,116,255],
     [63,184,68],
     [0,104,56],[0,0,0]])/255
-newtime = np.arange(0,200,2)
-oldtime = np.arange(0,200)
+newtime = np.arange(0,bins*2,2)
+oldtime = np.arange(0,bins*2)
 for i,c in enumerate(cells):
     tdat = data['ca_'+c]
     tdat = tdat/np.max(tdat,axis=0)
-    plt.fill([0,100,100,0],[-1,-1,1,1],color=[0.8,0.8,0.8])
-    plt.plot([100,100],[-1,1],color='k',linestyle='--')
+    plt.fill([0,bins,bins,0],[-1,-1,1,1],color=[0.8,0.8,0.8])
+    plt.plot([bins,bins],[-1,1],color='k',linestyle='--')
    #plt.plot(tdat,color=colours[i,:],alpha=0.2)
-    plt.plot([200,200],[-1,1],color='k',linestyle='--')
+    plt.plot([bins*2,bins*2],[-1,1],color='k',linestyle='--')
     y = np.mean(tdat,axis=1)
     ynew = np.interp(newtime,oldtime,y)
     plt.plot(y,color=colours[i,:])
     
-plt.ylim([0,1])
-plt.xlim([0,200])
+#plt.ylim([0,1])
+plt.xlim([0,bins*2])
 plt.xlabel('Normalised time')
 plt.ylabel('Norm dF/F')
 plt.savefig(os.path.join(savedir,'SummaryTNpseudotime.pdf'))
+#%% plot all ca
+plt.close('all')
+
+from Utilities.utils_plotting import uplt
+tneuron = 'fb5i'
+alldat = data[tneuron+'_alldat']
+camean = data['ca_'+tneuron]
+trajmean = data['traj_'+tneuron]
+numflies = camean.shape[1]
+cmin= -0.25
+cmax = 0.25
+offset = 50
+for i in range(numflies):
+    aca = alldat['ca_'+str(i)]
+    atraj = alldat['traj_'+str(i)]
+    calen= aca.shape[1]
+    fig,ax=plt.subplots()
+    
+    tmean = trajmean[:,:,i]
+    pedge = tmean[-1,0]
+    plt.fill(np.array([-10,0,0,-10])+pedge,np.array([0,0,50,50]),color=[0.7,0.7,0.7])
+    plt.fill(np.array([-10,0,0,-10]),np.array([0,0,-50,-50]),color=[0.7,0.7,0.7])
+    
+    for ic in range(calen):
+        ca =aca[:,0]
+        x = atraj[:,0,ic]
+        y = atraj[:,1,ic]
+        x = np.append([np.nan,np.nan],x)
+        y = np.append([np.nan,np.nan],y)
+        ca = np.append([cmin,cmax],ca)
+        # y[0] = cmin
+        # y[1] = cmax
+        ca[ca<cmin] =cmin
+        ca[ca>cmax] = cmax
+        #uplt.coloured_line_simple(atraj[:,0,ic],atraj[:,1,ic],ca,'coolwarm',-0.25,0.25,alpha=0.5)
+        uplt.coloured_line(x,y,aca[:,ic],ax,cmap='coolwarm',alpha=0.3)
+    
+        
+    plt.fill(np.array([-10,0,0,-10])+pedge+offset,np.array([0,0,50,50]),color=[0.7,0.7,0.7])
+    plt.fill(np.array([-10,0,0,-10])+offset,np.array([0,0,-50,-50]),color=[0.7,0.7,0.7])
+    
+    tca = camean[:,i]
+    tca[tca<cmin] =cmin
+    tca[tca>cmax] = cmax
+    x = tmean[:,0]
+    y = tmean[:,1]
+    x = np.append([np.nan,np.nan],x)
+    y = np.append([np.nan,np.nan],y)
+    tca = np.append([cmin,cmax],tca)
+    uplt.coloured_line(x+offset,y,tca,ax,cmap='coolwarm',linewidth=2)
+    ax.set_aspect('equal')  
+    ax.set_xlim([-25,80])
+    ax.set_ylim([-50,60])
+    plt.savefig(os.path.join(savedir,'ReturnMean_'+tneuron+'_'+str(i) +'.pdf'))
+    plt.savefig(os.path.join(savedir,'ReturnMean_'+tneuron+'_'+str(i) +'.png'))
+#%%
+
 #%% FC2 comparison
 from EdgeTrackingOriginal.ETpap_plots.ET_paper import ET_paper
 from scipy.stats import circmean, circstd

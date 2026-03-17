@@ -22,8 +22,12 @@ from src.utilities import funcs as fn
 from EdgeTrackingOriginal.ETpap_plots.ET_paper import ET_paper
 from scipy.stats import circmean, circstd
 plt.rcParams['pdf.fonttype'] = 42 
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['font.sans-serif'] = ['Arial']
 colours2 = np.array([[106,207,246],[237,30,36],[168,170,173],[6,149,207]])/255
 colours = np.array([[81,156,204],[84,39,143],[237,30,36],[6,149,207]])/255
+colours_leavereturn = np.array([[247,115,17],[48,120,198]])/255
+
 #%%
 savedir = "Y:\\Papers, Review, Theses\\RutaLabPapers\\ET_2024\\MyContribution\\Panels"
 datadirs = [
@@ -35,6 +39,12 @@ datadirs = [
 "Y:\Data\FCI\Hedwig\FC2_maimon2\\241106\\f1\\Trial2",
 #r"Y:\Data\FCI\Hedwig\FC2_maimon2\250128\f1\Trial4" left out of original six to be consistent
 ]
+#%% Load all data
+    
+etpaperall = {}
+for i,d in enumerate(datadirs):
+    etp = ET_paper(d)
+    etpaperall.update({str(i):etp})
 #%% Load data
 eg_fly =3
 datadir = datadirs[eg_fly]
@@ -363,6 +373,119 @@ plt.ylabel('time (s)')
 plt.ylim([0,timecourse+0.2])
 plt.xticks([-180,0,180])
 plt.savefig(os.path.join(savedir,'Phase_return_diff_jump_realtime.pdf'))
+#%% In plume phase timecourse
+# 1. Pseudotime
+timecourse = 5
+# 2. Realtime
+plt.close('all')
+for i, d in enumerate(datadirs):
+    
+    etp = ET_paper(d)
+    p = etp.phase_time_inside(timecourse)
+    
+    p[np.abs(p)==0.0] = np.nan
+    pmean = circmean(p,high=np.pi, low=-np.pi,axis=2,nan_policy='omit') #%need to do circ mean
+    t = np.arange(0,timecourse,0.1)
+    #plt.plot(t,p[:,0,:],color=colours[0,:],alpha=0.1,linestyle=':')
+    #plt.plot(t,p[:,1,:],color=colours[1,:],alpha=0.1,linestyle=':')
+    tt = np.tile(t,(np.shape(p)[2],1))
+    #plt.scatter(tt,p[:,0,:],alpha=0.4,s=5,color=colours[0,:])
+    #plt.scatter(tt,p[:,1,:],alpha=0.4,s=5,color=colours[1,:])
+    #plt.plot(t,pmean[:,0],color=colours[0,:],alpha=1)
+    #plt.plot(t,pmean[:,1],color=colours[1,:],alpha=1)
+    if i==0:
+        pltmean = np.zeros((len(pmean),4,len(datadirs)))
+    pltmean[:,:,i] = 180*pmean/np.pi
+
+
+colours = np.array([[81,156,204],[84,39,143],[0,0,0],[6,149,207]])/255
+colours = np.array([[0,0,0],[81,156,204]])/255
+plt.figure()
+pm = circmean(pltmean,high=180,low=-180,axis=2,nan_policy='omit')
+zorder = [1,3,0]
+for i in range(2):
+    plt.plot(pltmean[:,i,:],t,color = colours[i,:],alpha=0.3,zorder=zorder[i])
+    plt.plot(pm[:,i],t,color=colours[i,:],zorder=zorder[i])
+ 
+    
+    
+plt.plot([-180,180],[timecourse,timecourse],color='k',linestyle='--')
+plt.plot([0,0],[0,timecourse],color='k',linestyle='--')
+plt.plot([-90,-90],[0,timecourse],color=colours2[1,:],linestyle='--')
+plt.xlim([-180,180])
+plt.xlabel('angle (deg)')
+plt.ylabel('time (s)')
+
+plt.ylim([0,timecourse+0.2])
+plt.xticks([-180,0,180])
+#plt.savefig(os.path.join(savedir,'Phase_return_jump_realtime.pdf'))
+
+plt.figure()
+plt.plot(pltmean[:,3,:],t,color = colours[1,:],alpha=0.3,zorder=zorder[i])
+plt.plot(pm[:,3],t,color=colours[1,:],zorder=zorder[i])
+plt.plot([-180,180],[timecourse,timecourse],color='k',linestyle='--')
+plt.plot([0,0],[0,timecourse],color='k',linestyle='--')
+plt.plot([-90,-90],[0,timecourse],color=colours2[1,:],linestyle='--')
+plt.xlim([-180,180])
+plt.xlabel('FC2-EPG phase (deg)')
+plt.ylabel('time (s)')
+plt.ylim([0,timecourse+0.2])
+plt.xticks([-180,0,180])
+#plt.savefig(os.path.join(savedir,'Phase_return_diff_jump_realtime.pdf'))
+#%% In out plume timecourse
+timecourse = 15
+timecourse_inside= 3
+
+# 2. Realtime
+plt.close('all')
+for i, d in enumerate(datadirs):
+    
+    etp = ET_paper(d)
+    p1 = etp.phase_time(timecourse)
+    p2 = etp.phase_time_inside(timecourse_inside)
+    
+    
+    
+    p = np.append(p1,p2,axis=0)
+    p[np.abs(p)==0.0] = np.nan
+    pmean = circmean(p,high=np.pi, low=-np.pi,axis=2,nan_policy='omit') #%need to do circ mean
+    t = np.arange(0,timecourse+timecourse_inside,0.1)
+    #plt.plot(t,p[:,0,:],color=colours[0,:],alpha=0.1,linestyle=':')
+    #plt.plot(t,p[:,1,:],color=colours[1,:],alpha=0.1,linestyle=':')
+    tt = np.tile(t,(np.shape(p)[2],1))
+    #plt.scatter(tt,p[:,0,:],alpha=0.4,s=5,color=colours[0,:])
+    #plt.scatter(tt,p[:,1,:],alpha=0.4,s=5,color=colours[1,:])
+    #plt.plot(t,pmean[:,0],color=colours[0,:],alpha=1)
+    #plt.plot(t,pmean[:,1],color=colours[1,:],alpha=1)
+    if i==0:
+        pltmean = np.zeros((len(pmean),4,len(datadirs)))
+    pltmean[:,:,i] = 180*pmean/np.pi
+
+
+colours = np.array([[81,156,204],[84,39,143],[0,0,0],[6,149,207]])/255
+colours = np.array([[0,0,0],[81,156,204]])/255
+plt.figure()
+pm = circmean(pltmean,high=180,low=-180,axis=2,nan_policy='omit')
+zorder = [1,3,0]
+for i in range(2):
+    plt.plot(pltmean[:,i,:],t,color = colours[i,:],alpha=0.3,zorder=zorder[i])
+    plt.plot(pm[:,i],t,color=colours[i,:],zorder=zorder[i])
+ 
+    
+    
+plt.plot([-180,180],[timecourse,timecourse],color='k',linestyle='--')
+plt.plot([0,0],[0,timecourse+timecourse_inside],color='k',linestyle='--')
+plt.plot([-90,-90],[0,timecourse],color=colours2[1,:],linestyle='--')
+plt.xlim([-180,180])
+plt.xlabel('angle (deg)')
+plt.ylabel('time (s)')
+
+plt.ylim([0,timecourse+timecourse_inside+0.2])
+plt.xticks([-180,0,180])
+#plt.savefig(os.path.join(savedir,'Phase_return_jump_realtime_inside_out.pdf'))
+
+
+
 #%% Panel D bump amplitude
 timecourse = 15
 t = np.arange(0,timecourse,0.1)
@@ -399,6 +522,7 @@ for i, d in enumerate(datadirs):
     
     
 #etp.cxa.mean_jump_arrows()
+
 #%% Trajectory all
 plt.close('all')
 for i,d in enumerate(datadirs):
@@ -489,6 +613,129 @@ plt.savefig(os.path.join(savedir,'CrosswindPlumeDistance.pdf'))
 # Bump amplitude and regression.
 
 
+#%% Phase nulled bumps
+plt.close('all')
+pltall = np.zeros((16,2,2,len(etpaperall)))
+for i in range(len(etpaperall)):
+    etp = etpaperall[str(i)]
+    pltall[:,:,:,i] = etp.cxa.phase_null_in_out_jump(fsb_names=['eb','fsb_upper'])
 
 
 
+pltmean = np.mean(pltall,axis=3)
+x = np.arange(0,16)
+colours_leavereturn = np.array([[247,115,17],[48,120,198]])/255
+for i in range(2):
+    plt.plot(x,pltall[:,0,i,:],color=colours_leavereturn[0,:],alpha=0.5)
+    plt.plot(x,pltall[:,1,i,:],color=colours_leavereturn[1,:],alpha=0.5)
+    plt.plot(x,pltmean[:,0,i],color=colours_leavereturn[0,:],marker='s')
+    plt.plot(x,pltmean[:,1,i],color=colours_leavereturn[1,:],marker='s')
+    x +=17
+
+plt.plot([16,16],[0,1],color='k',linestyle='--')
+plt.xticks([0,15,17,32],labels=['1','16','1','16'])
+plt.yticks(np.arange(0,1.25,.25))
+plt.ylim([0,1])
+plt.ylabel('dF/F0')
+plt.xlabel('EPG wedges/FSB columns')
+plt.savefig(os.path.join(savedir,'Phase_nulled_summary.pdf'))
+    
+#%% Population vector amplitude comparison
+plt.close('all')
+from scipy import stats
+from Utilities.utils_general import utils_general as ug
+plt.close('all')
+pltall = np.zeros((2,2,len(etpaperall)))
+for i in range(len(etpaperall)):
+    etp = etpaperall[str(i)]
+    outdat = etp.cxa.pva_comparison(fsb_names=['eb','fsb_upper'])
+    pltall[:,:,i] = np.mean(outdat,axis=0)
+    
+pltmean = np.mean(pltall,axis=2)
+x = np.arange(0,2,dtype='float32')
+tc = np.array([[0,0,0,],colours[0,:]])
+for i in range(2):
+    plt.plot(x,pltall[:,i,:],color = tc[i,:],alpha=0.5)
+    plt.plot(x,pltmean[:,i],color = tc[i,:],linewidth=4)
+    tstat = stats.ttest_ind(pltall[0,i,:],pltall[1,i,:])
+    pval = ug.round_to_sig_figs(tstat.pvalue,2)
+    plt.text(np.mean(x),0.23,str(pval),horizontalalignment='center')
+    x+=1.5
+plt.ylim([0,0.26]);
+plt.ylabel('PVA')
+plt.xticks([0,1,1.5,2.5],['plume exits','jump return','plume exits','jump return'],rotation=45)
+plt.subplots_adjust(bottom=0.2)
+plt.yticks(np.arange(0,.25,.05))
+plt.savefig(os.path.join(savedir,'PVA_comparison.pdf'))
+#%% Mean fluorescence comparison
+plt.close('all')
+from scipy import stats
+from Utilities.utils_general import utils_general as ug
+plt.close('all')
+pltall = np.zeros((2,2,len(etpaperall)))
+for i in range(len(etpaperall)):
+    etp = etpaperall[str(i)]
+    outdat = etp.cxa.mean_flur_comparison(fsb_names=['eb','fsb_upper'])
+    pltall[:,:,i] = np.mean(outdat,axis=0)
+    
+pltmean = np.mean(pltall,axis=2)
+x = np.arange(0,2,dtype='float32')
+tc = np.array([[0,0,0,],colours[0,:]])
+for i in range(2):
+    plt.plot(x,pltall[:,i,:],color = tc[i,:],alpha=0.5)
+    plt.plot(x,pltmean[:,i],color = tc[i,:],linewidth=4)
+    tstat = stats.ttest_ind(pltall[0,i,:],pltall[1,i,:])
+    pval = ug.round_to_sig_figs(tstat.pvalue,2)
+    plt.text(np.mean(x),0.55,str(pval),horizontalalignment='center')
+    x+=1.5
+plt.ylim([0,0.6]);
+plt.ylabel('mean dF/F')
+plt.xticks([0,1,1.5,2.5],['plume exits','jump return','plume exits','jump return'],rotation=45)
+plt.subplots_adjust(bottom=0.2)
+plt.yticks(np.arange(0,.75,.25))
+plt.savefig(os.path.join(savedir,'mean_Flur_comparison.pdf'))
+
+#%% Example trace with phase nulled bumps
+eg_fly =3
+datadir = datadirs[eg_fly]
+d = datadir.split("\\")
+name = d[-3] + '_' + d[-2] + '_' + d[-1]
+etp = ET_paper(datadir)
+#%%
+# Jump trajectory
+plt.close('all')
+tstart = 60*4.2
+tend = 60*5.5
+etp.example_trajectory_pva(tstart,tend,cmap='coolwarm',crange=[0,0.2])
+
+plt.xlim([-50,15])
+plt.savefig(os.path.join(savedir,'egPVAtraj.pdf'))
+jumps = etp.cxa.get_jumps()
+t_js = np.logical_and(jumps[:,1]>tstart*10,jumps[:,1]<tend*10)
+
+tjump = jumps[t_js,:]
+o,phase2 = etp.cxa.phase_null_in_out_jump(fsb_names=['eb','fsb_upper'],return_full=True)
+tphase = phase2[:,:,t_js,:]
+tjs = tphase.shape[2]
+
+plt.savefig(os.path.join(savedir,'egTraj_return.pdf'))
+retstrings = ['leave','return']
+for i in range(tjs):
+
+    for ni in range(2):
+        plt.figure()
+        x = np.arange(0,16)
+        tp = tphase[:,ni,i,0]
+        plt.plot(x,tp,color=colours_leavereturn[ni,:])
+        x += 17
+        tp = tphase[:,ni,i,1]
+        plt.plot(x,tp,color=colours_leavereturn[ni,:])
+        plt.ylim([0,1])
+        plt.savefig(os.path.join(savedir,'phase_'+retstrings[ni]+'_' +str(i)+ '.pdf'))
+
+
+
+
+
+
+ 

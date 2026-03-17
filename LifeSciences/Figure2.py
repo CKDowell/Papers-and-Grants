@@ -50,6 +50,7 @@ datadirs = [
      "Y:\Data\FCI\\Hedwig\\FB4P_b_SS60296_sytGC7f\\240805\\f1\\Trial3",#New mask
      "Y:\Data\FCI\\Hedwig\\FB4P_b_SS60296_sytGC7f\\240909\\f1\\Trial5",#New mask
        "Y:\Data\FCI\\Hedwig\\FB4P_b_SS60296_sytGC7f\\240906\\f2\\Trial2",#New mask
+       r"Y:\Data\FCI\Hedwig\FB4P_b_SS60296\250311\f1\Trial1",
       ]
 
 
@@ -59,7 +60,7 @@ for i,datadir in enumerate(datadirs):
     plt.figure()
     xoffset= 0
     cxt = CX_tan(datadir)
-    trj,ca = cxt.fc.mean_traj_nF()
+    trj,ca = cxt.fc.mean_traj_nF(interp_points=25)
     if i==0:
         T = np.expand_dims(trj,2)
         C = np.expand_dims(ca,1)
@@ -88,7 +89,7 @@ for i,datadir in enumerate(datadirs):
     xoffset= 0
     
     cxt = CX_tan(datadir)
-    trj,ca = cxt.fc.mean_traj_nF()
+    trj,ca = cxt.fc.mean_traj_nF(interp_points=25)
     if i==0:
         T = np.expand_dims(trj,2)
         C = np.expand_dims(ca,1)
@@ -113,7 +114,7 @@ for i,datadir in enumerate(datadirs):
     xoffset= 0
     
     cxt = CX_tan(datadir)
-    trj,ca = cxt.fc.mean_traj_nF()
+    trj,ca = cxt.mean_traj_nF()
     if i==0:
         T = np.expand_dims(trj,2)
         C = np.expand_dims(ca,1)
@@ -129,8 +130,8 @@ C_I = C
 #%% 
 
 plt.close('all')
-cnx = np.max(C_x,axis=0)
-cm_x = np.mean(C_x/cnx,axis=1)
+#cnx = np.max(C_x,axis=0)
+#cm_x = np.mean(C_x/cnx,axis=1)
 cnpb = np.max(C_PB,axis=0)
 cm_pb = np.mean(C_PB/cnpb,axis=1)
 
@@ -146,7 +147,7 @@ plt.plot([0,99],[0,0],color='k',linestyle='--')
 plt.plot([49,49],[-1,1],color='k',linestyle='--')
 plt.plot([0,0],[-1,1],color='k',linestyle='--')
 plt.plot([99,99],[-1,1],color='k',linestyle='--')
-plt.plot(cm_x,color=colours[0,:])
+#plt.plot(cm_x,color=colours[0,:])
 plt.plot(cm_pb,color=colours[1,:])
 plt.plot(cm_r,color=colours[2,:])
 plt.plot(cm_i,color=colours[3,:])
