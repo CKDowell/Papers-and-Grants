@@ -629,8 +629,8 @@ flies = [0,1,2]
 L = 20
 regions = ['fsb1_ch1','fsb2_ch2']
 for f in flies:
-    data = all_flies[dchoice][f]
-    cxa = data.cxa
+    etp = all_flies[dchoice][f]
+    cxa = etp.cxa
     jumps = cxa.get_jumps()
     fc2 = cxa.pdat['phase_fsb1_ch1']
     hdc = cxa.pdat['phase_fsb2_ch2']
@@ -648,7 +648,7 @@ for f in flies:
         #plt.plot(x,ft,color=colours[2,:])
         plt.scatter(x,th+offset,color=colours[1,:],s=5)
         
-        phase,traj,amp = etp.trajectory_mean(time_threshold2=0,regions=regions)
+        phase,traj,amp = etp.trajectory_mean(regions=regions)
         #Predict
         
 #         zf = np.exp(1j*ft)
@@ -670,27 +670,57 @@ for f in flies:
 
         offset = offset-2*np.pi-1
 #%%
+savedir = r'Y:\Presentations\2026\03_CSHL\Panels'
 x = np.linspace(0,1,100)
 x  = np.append(x,np.linspace(x[-1]+x[1],5+x[1],100))
 cdx = [2,1]
+
+allmean = np.zeros((200,2,len(flies)))
+alltraj = np.zeros((200,2,len(flies)))
+ampmean = np.zeros((200,2,len(flies)))
 for f in flies:
-    plt.figure()
     etp = all_flies[dchoice][f]
     for r in regions:
         etp.cxa.pdat['offset_'+r+'_phase'] =pd.Series( np.squeeze(etp.cxa.pdat['phase_'+r]))
         etp.cxa.pdat['wedges_offset_'+r] = etp.cxa.pdat['wedges_'+r]
     
-    phase,traj,amp = etp.trajectory_mean(time_threshold2=0,regions=regions)
-    
-    
-    
-    for i2 in range(phase.shape[2]):
-        psub = stats.circmean(phase[95:105,0,i2],high=np.pi,low=-np.pi)
-        for i in range(2):
-            tp = ug.circ_subtract(phase[:,i,i2],psub)
-            plt.scatter(tp,x,color=colours[cdx[i],:],s=5)
-            
-            
+    phase,traj,amp = etp.trajectory_mean(time_threshold=60,time_threshold2=0,regions=regions)
+    psubtract = stats.circmean(phase[90:100,0,:],axis=0,low=-np.pi,high=np.pi)
+    for ip in range(phase.shape[2]):
+        phase[:,0,ip] = ug.circ_subtract(phase[:,0,ip],psubtract[ip])
+        phase[:,1,ip] = ug.circ_subtract(phase[:,1,ip],psubtract[ip])
+    pmean = stats.circmean(phase,high=np.pi,low=-np.pi,axis=2,nan_policy='omit')
+    allmean[:,:,f] = pmean
+    alltraj[:,:,f] = np.mean(traj,axis=2)
+    ampmean[:,:,f] = np.mean(amp[:,1,:,:],axis=2)
+    # for i2 in range(phase.shape[2]):
+    #     psub = stats.circmean(phase[95:105,0,i2],high=np.pi,low=-np.pi)
+    #     for i in range(2):
+    #         tp = ug.circ_subtract(phase[:,i,i2],psub)
+    #         plt.scatter(tp,x,color=colours[cdx[i],:],s=5)
+cchoice =[2,1]
+plt.figure()
+plt.fill([0,1,1,0],[-np.pi,-np.pi,np.pi,np.pi],color=[.8,.8,.8],alpha=.5,linewidth=0)
+plt.fill([1,5,5,1],[-np.pi,-np.pi,0,0],color=[.9,.1,.1],alpha=.2,linewidth=0)
+plt.fill([1,5,5,1],[np.pi,np.pi,0,0],color=[.4,.8,.96],alpha=.2,linewidth=0)
+plt.plot([0,max(x)],[0,0],color='k',linestyle='--')
+#plt.plot([0,max(x)],[-np.pi/2,-np.pi/2],color='r',linestyle='--')
+
+for i in range(2):
+    pm = stats.circmean(allmean,low=-np.pi,high=np.pi,axis=2)
+    for f in flies:
+        plt.scatter(x,allmean[:,i,f],color=colours[cchoice[i],:],s=10,alpha=.25)
+        
+    plt.scatter(x,pm[:,i],color=colours[cchoice[i],:],zorder=5)
+
+plt.xticks([])
+plt.xlim([0,5])
+plt.ylim([-np.pi,np.pi])
+plt.yticks([-np.pi,-np.pi/2,0,np.pi/2,np.pi],labels=[-180,-90,0,90,180],fontsize=15)
+plt.ylabel('phase [deg]',fontsize=15)
+plt.savefig(os.path.join(savedir,'DualColourPseudotimeProgression.pdf'))
+
+
 #%%
 #%% hDeltaC FC2 phase offset jumps from re-entry
 
