@@ -196,6 +196,13 @@ groups = {
         r'Y:\Data\FCI\Hedwig\hDeltaC_68A10_FC2_GCaMP_RCaMP\260201\f1\Trial3',
         r'Y:\Data\FCI\Hedwig\hDeltaC_68A10_FC2_GCaMP_RCaMP\260211\f1\Trial2'],
     
+    "hDeltaC_FC2_EPG": [
+        r'Y:\Data\FCI\Hedwig\68A10_60D05_FC2_GC8s_RC3\260331\f1\Trial3', # 6 jumps
+        r'Y:\Data\FCI\Hedwig\68A10_60D05_FC2_GC8s_RC3\260426\f1\Trial1', # 8 jumps
+        r'Y:\Data\FCI\Hedwig\68A10_60D05_FC2_GC8s_RC3\260425\f2\Trial3', # 3 jumps
+        r'Y:\Data\FCI\Hedwig\68A10_60D05_FC2_GC8s_RC3\260401\f1\Trial2', # Some nice tracking 3 jumps
+        r'Y:\Data\FCI\Hedwig\68A10_60D05_FC2_GC8s_RC3\260429\f2\Trial1',# 17 jumps
+        ],
     
     "hDeltaC_ACV_pulses": [
     r"Y:\Data\FCI\Hedwig\hDeltaC_SS02863\250320\f2\Trial5",#ACV pulses
@@ -252,9 +259,15 @@ for group_name, datadirs in groups.items():
         print(f"[{group_name}] {datadir}")
         if group_name=='hDeltaC_FC2':
             etp = ET_paper(datadir,regions=['fsb1_ch1','fsb2_ch2'])
+        elif group_name=='hDeltaC_FC2_EPG':
+            etp = ET_paper(datadir,regions=['eb_ch1','fsb1_ch1','fsb2_ch2'])
         else:
             etp = ET_paper(datadir)
         all_flies[group_name][i] = etp
+        
+        
+        
+        
 #%% Plot example data from FC2
 savedir = r'Y:\Presentations\2026\03_CSHL\ExampleDataPanels'
 eg_fly = 3
@@ -283,7 +296,7 @@ plt.savefig(os.path.join(savedir,'Plume_Fly_'+cell_type+str(eg_fly)+'_'+str(tsta
 
 
 
-colours = colours = np.array([[0,0,0],[81,156,205]])/255
+colours = np.array([[0,0,0],[81,156,205]])/255
 etp.example_trajectory_arrows(tstart,tend,colours,samp_period=2,boxes=[],regions=['eb','fsb_upper'])
 plt.savefig(os.path.join(savedir,'Eg_traj_arrows_Fly_'+cell_type+str(eg_fly)+'_'+str(tstart) +'_'+str(tend)+'.pdf'))
 
@@ -871,13 +884,569 @@ plt.figure(5)
 plt.savefig(os.path.join(savedir,'Plume_Fly_'+cell_type+str(eg_fly)+'_'+str(tstart) +'_'+str(tend)+'.pdf'))
 
 
+#%% 
+
+plt.close('all')
+data = all_flies['hDeltaC']
+for f in data:
+    cxa = data[f].cxa
+    ins = cxa.ft2['instrip'].to_numpy()
+    y = np.mean(cxa.pdat['wedges_fsb_upper'],axis=1)
+    cxa.plot_traj_arrow_new(['eb','fsb_upper'],a_sep=10)
+    plt.figure()
+    plt.plot(y,color='k')
+    plt.plot(ins,color='r')
 
 
 
 
+#%% Dual colour plots - when is FC2 paying attention to hDC
+
+# Metrics - 1. circular correlation
+#           2. Offset in signal
+#           3. Dot product
+
+data = all_flies['hDeltaC_FC2'][2]
+cxa = data.cxa
+import pingouin as pg
+fc2 = cxa.pdat['phase_fsb1_ch1']
+hdc = cxa.pdat['phase_fsb2_ch2'].squeeze()
+heading = cxa.ft2['ft_heading'].to_numpy()
 
 
 
+C = pg.circ_corrcc(fc2,hdc)
+C2 = pg.circ_corrcc(heading,fc2)
+
+winlength = 50
+step =1
+n = len(fc2)
+starts = range(0,n-winlength+1,step)
+ins = cxa.ft2['instrip'].to_numpy()
+
+
+def time_varying_circ_corr(data1,data2,winlength):
+    indices = np.array([])
+    correlations = np.array([])
+    for s in starts:
+        
+        end = s+winlength
+        r = pg.circ_corrcc(data1[s:end],data2[s:end])
+        idx = (s + end - 1) / 2
+        indices = np.append(indices,idx)
+        correlations = np.append(correlations,r[0])
+
+    return indices, correlations
+
+
+t= np.arange(0,len(fc2))/10
+
+i_hdc,c_hdc = time_varying_circ_corr(hdc,fc2,30)
+plt.plot(i_hdc/10,c_hdc,color='k')
+i_hd,c_hd = time_varying_circ_corr(heading,fc2,30)
+plt.plot(i_hd/10,c_hd,color='b')
+plt.plot(t,ins,color='r')
+colours = uplt.columnar_colours()
+plt.scatter(t,fc2+2*np.pi,color=colours[2,:],s=3)
+plt.scatter(t,hdc+2*np.pi,color=colours[1,:],s=3)
+
+#%%
+savedir = r'Y:\Presentations\2026\04_LabMeeting_Frankfurt\DualColour_hDC_FC2'
+plt.close('all')
+for i in range(3):
+    cxa = all_flies['hDeltaC_FC2'][i].cxa
+    jumps = cxa.get_jumps()
+    fc2 = cxa.pdat['phase_fsb1_ch1']
+    hdc = cxa.pdat['phase_fsb2_ch2'].squeeze()
+    amp = np.mean(cxa.pdat['wedges_fsb2_ch2'],axis=1)
+    amp = (amp-np.mean(amp))/np.std(amp)
+    heading = cxa.ft2['ft_heading'].to_numpy()
+    t= np.arange(0,len(fc2))/10
+    ins = cxa.ft2['instrip'].to_numpy()
+
+    dot = np.cos(ug.circ_subtract(hdc,fc2))
+    plt.figure()
+    plt.hist(dot,bins=100)
+    plt.figure()
+    plt.scatter(t,fc2+2*np.pi,color=colours[2,:],s=3)
+    plt.scatter(t,hdc+2*np.pi,color=colours[1,:],s=3)
+    plt.scatter(t,heading+2*np.pi,color='k',s=3)
+    plt.plot(t,dot,color='k')
+    plt.plot(t,ins,color='r')
+    plt.scatter(t[jumps[:,1]],np.ones(len(jumps)),color='m')
+    plt.figure(figsize=(15,15))
+    for ij,j in enumerate(jumps):
+        
+        
+        dx = np.arange(j[0],j[2])
+        tp = np.where(dx==j[1])[0]
+        tfc2 = fc2[dx]
+        thdc = hdc[dx]
+        tamp = amp[dx]
+        poffset = tfc2[tp]
+        tfc2 = ug.circ_subtract(tfc2,poffset)
+        thdc = ug.circ_subtract(thdc,poffset)
+        tt = t[dx]
+        tt = tt-t[j[1]]
+        offset =- np.pi*2.5*ij 
+        plt.fill(np.array([tt[0],0,0,tt[0]]),np.array([-np.pi,-np.pi,np.pi,np.pi])+offset,color=[1,.8,.8])
+        plt.fill(np.array([tt[0],tt[-1],tt[-1],tt[0]]),np.array([-np.pi,-np.pi,np.pi,np.pi])+offset,color=[.8,.8,.8],zorder=-1)
+        
+        plt.scatter(tt,tfc2+offset,color=colours[2,:],s=5)
+        plt.scatter(tt,thdc+offset,color=colours[1,:],s=5)
+        plt.plot([tt[0],tt[-1]],np.array([0,0])+offset,color='k',linestyle='--')
+        #plt.plot([tt[0],tt[-1]],np.array([-np.pi,-np.pi])+offset,color='k')
+        #plt.plot([tt[0],tt[-1]],np.array([+np.pi,+np.pi])+offset,color='k')
+        uplt.coloured_line_simple(tt,tt*0-1.2*np.pi+offset,tamp,'coolwarm',-2,2,linewidth=3)
+    plt.ylim([-130,5])
+    plt.xlim([-30,60])
+    plt.savefig(os.path.join(savedir,'jump_lines_'+cxa.name+'.pdf'))
+    plt.savefig(os.path.join(savedir,'jump_lines_'+cxa.name+'.png'))
+    
+for i in range(2):
+    cxa = all_flies['hDeltaC_FC2_EPG'][i].cxa
+    jumps = cxa.get_jumps()
+    fc2 = cxa.pdat['phase_fsb1_ch1']
+    hdc = cxa.pdat['phase_fsb2_ch2'].squeeze()
+    epg = cxa.pdat['phase_eb_ch1']
+    heading = cxa.ft2['ft_heading'].to_numpy()
+    
+    amp = np.mean(cxa.pdat['wedges_fsb2_ch2'],axis=1)
+    amp = (amp-np.mean(amp))/np.std(amp)
+    
+    fc2_s = ug.savgol_circ(cxa.pdat['phase_fsb1_ch1'],30,3)
+    hdc_s = ug.savgol_circ(cxa.pdat['phase_fsb2_ch2'].squeeze(),30,3)
+    epg_s = ug.savgol_circ(cxa.pdat['phase_eb_ch1'],30,3)
+    
+    t= np.arange(0,len(fc2))/10
+    ins = cxa.ft2['instrip'].to_numpy()
+
+    dot = np.cos(ug.circ_subtract(hdc_s,fc2_s))
+    dot2 = np.cos(ug.circ_subtract(epg_s,fc2_s))
+    plt.figure()
+    plt.subplot(1,2,1)
+    plt.hist(dot,bins=100)
+    plt.subplot(1,2,2)
+    plt.hist(dot2,bins=100)
+    plt.figure()
+    plt.scatter(dot,dot2,s=1)
+    
+    plt.figure()
+    plt.scatter(t,fc2+2*np.pi,color=colours[2,:],s=3)
+    plt.scatter(t,hdc+2*np.pi,color=colours[1,:],s=3)
+    plt.scatter(t,epg+2*np.pi,color='k',s=3)
+    plt.plot(t,dot,color=colours[1,:])
+    plt.plot(t,dot2,color='k')
+    plt.plot(t,ins,color='r')
+    plt.scatter(t[jumps[:,1]],np.ones(len(jumps)),color='m')
+    
+    
+    
+    plt.figure(figsize=(15,15))
+    poffset = stats.circmean(ug.circ_subtract(epg,heading),low=-np.pi,high=np.pi)
+    for ij,j in enumerate(jumps):
+        
+        
+        dx = np.arange(j[0],j[2])
+        tp = np.where(dx==j[1])[0]
+        tfc2 = fc2[dx]
+        thdc = hdc[dx]
+        tepg = epg[dx]
+        tamp = amp[dx]
+        #poffset = tfc2[tp]
+        tfc2 = ug.circ_subtract(tfc2,poffset)*-cxa.side
+        thdc = ug.circ_subtract(thdc,poffset)*-cxa.side
+        tepg = ug.circ_subtract(tepg,poffset)*-cxa.side
+        tt = t[dx]
+        tt = tt-t[j[1]]
+        offset = -np.pi*2.5*ij 
+        plt.fill(np.array([tt[0],0,0,tt[0]]),np.array([-np.pi,-np.pi,np.pi,np.pi])+offset,color=[1,.8,.8])
+        plt.fill(np.array([tt[0],tt[-1],tt[-1],tt[0]]),np.array([-np.pi,-np.pi,np.pi,np.pi])+offset,color=[.8,.8,.8],zorder=-1)
+        plt.scatter(tt,tfc2+offset,color=colours[2,:],s=5)
+        plt.scatter(tt,thdc+offset,color=colours[1,:],s=5)
+        plt.scatter(tt,tepg+offset,color='k',s=5)
+        plt.plot([tt[0],tt[-1]],np.array([0,0])+offset,color='k',linestyle='--')
+        #plt.plot([tt[0],tt[-1]],np.array([-np.pi,-np.pi])+offset,color='k')
+        #plt.plot([tt[0],tt[-1]],np.array([+np.pi,+np.pi])+offset,color='k')
+        uplt.coloured_line_simple(tt,tt*0-1.2*np.pi+offset,tamp,'coolwarm',-2,2,linewidth=3)
+    plt.ylim([-130,5])
+    plt.xlim([-30,60])
+    plt.savefig(os.path.join(savedir,'jump_lines_'+cxa.name+'.pdf'))
+    plt.savefig(os.path.join(savedir,'jump_lines_'+cxa.name+'.png'))
+#%% Example FC2, EPG, hDeltaC
+etp = all_flies['hDeltaC_FC2_EPG'][1]
+
+tcolours = uplt.columnar_colours()
+tcolours[0,:] = [0,0,0]
+etp.plt_tmp(regions=['eb_ch1','fsb2_ch2','fsb1_ch1'],scalar=7,colours=tcolours,phase_num=5)
+plt.savefig(os.path.join(savedir,'Average_jump'+etp.cxa.name+'.pdf'))
+#%% Identify default mode of hDC and whether offset with FC2 aligns
+
+plt.close('all')
+plt.rcParams.update({'font.size': 15})
+cxa=  etp.cxa
+fc2 = cxa.pdat['phase_fsb1_ch1']
+hdc = cxa.pdat['phase_fsb2_ch2'].squeeze()
+epg = cxa.pdat['phase_eb_ch1']
+heading = cxa.ft2['ft_heading'].to_numpy()
+offset = stats.circmean(ug.circ_subtract(epg,heading),low=-np.pi,high=np.pi)
+fc2 = ug.circ_subtract(fc2,offset)
+epg = ug.circ_subtract(epg,offset)
+hdc = ug.circ_subtract(hdc,offset)
+
+ins = cxa.ft2['instrip'].to_numpy()
+# dx = np.where(ins>0)[0][0]
+# fc2= fc2[:dx]
+# hdc = hdc[:dx]
+# epg = epg[:dx]
+plt.figure()
+plt.scatter(hdc,fc2,s=2,color='k',alpha=.2)
+plt.plot([-np.pi,np.pi],[-np.pi,np.pi],color='b')
+plt.plot([-3*np.pi/4,-3*np.pi/4],[-np.pi,np.pi],color='r',linestyle='-')
+plt.plot([3*np.pi/4,3*np.pi/4],[-np.pi,np.pi],color='r',linestyle='-')
+plt.plot([-np.pi,np.pi],[-3*np.pi/4,-3*np.pi/4],color='r',linestyle='-')
+plt.plot([-np.pi,np.pi],[3*np.pi/4,3*np.pi/4],color='r',linestyle='-')
+plt.plot([-np.pi,np.pi],[np.pi/2,np.pi/2],color='g',linestyle='-',linewidth=2)
+plt.xlabel('hdc phase (deg)')
+plt.ylabel('fc2 phase (deg)')
+plt.yticks([-np.pi,-np.pi/2,0,np.pi/2,np.pi],[-180,-90,0,90,180])
+plt.xticks([-np.pi,-np.pi/2,0,np.pi/2,np.pi],[-180,-90,0,90,180])
+plt.xlim([-np.pi,np.pi])
+plt.ylim([-np.pi,np.pi])
+plt.savefig(os.path.join(savedir,'hdc_fc2_scatter_'+cxa.name+'.png'))
+
+
+plt.figure()
+plt.scatter(epg,fc2,s=2,color='k',alpha=.2)
+plt.plot([-np.pi,np.pi],[-np.pi,np.pi],color='b')
+plt.plot([-np.pi,np.pi],[-3*np.pi/4,-3*np.pi/4],color='r',linestyle='-')
+plt.plot([-np.pi,np.pi],[3*np.pi/4,3*np.pi/4],color='r',linestyle='-')
+plt.plot([-np.pi,np.pi],[np.pi/2,np.pi/2],color='g',linestyle='-',linewidth=2)
+plt.xlabel('epg phase (deg)')
+plt.ylabel('fc2 phase (deg)')
+plt.yticks([-np.pi,-np.pi/2,0,np.pi/2,np.pi],[-180,-90,0,90,180])
+plt.xticks([-np.pi,-np.pi/2,0,np.pi/2,np.pi],[-180,-90,0,90,180])
+plt.xlim([-np.pi,np.pi])
+plt.ylim([-np.pi,np.pi])
+plt.savefig(os.path.join(savedir,'epg_fc2_scatter_'+cxa.name+'.png'))
+
+
+plt.figure()
+plt.scatter(epg,hdc,s=2,color='k',alpha=.2)
+plt.plot([-np.pi,np.pi],[-np.pi,np.pi],color='b')
+plt.plot([-np.pi,np.pi],[-3*np.pi/4,-3*np.pi/4],color='r',linestyle='-')
+plt.plot([-np.pi,np.pi],[3*np.pi/4,3*np.pi/4],color='r',linestyle='-')
+plt.yticks([-np.pi,-np.pi/2,0,np.pi/2,np.pi],[-180,-90,0,90,180])
+plt.xticks([-np.pi,-np.pi/2,0,np.pi/2,np.pi],[-180,-90,0,90,180])
+plt.xlabel('epg phase (deg)')
+plt.ylabel('hdc phase (deg)')
+plt.xlim([-np.pi,np.pi])
+plt.ylim([-np.pi,np.pi])
+plt.savefig(os.path.join(savedir,'epg_hdc_scatter_'+cxa.name+'.png'))
 
 
 
+plt.figure()
+plt.title('hDeltaC')
+plt.hist(hdc,100,density=True)
+plt.xticks([-np.pi,-np.pi/2,0,np.pi/2,np.pi],[-180,-90,0,90,180])
+plt.xlim([-np.pi,np.pi])
+plt.plot([0,0],[0,0.5],color='k')
+plt.plot([np.pi/2,np.pi/2],[0,0.5],color='g')
+plt.plot([3*np.pi/4,3*np.pi/4],[0,0.5],color='r')
+plt.plot([-3*np.pi/4,-3*np.pi/4],[0,0.5],color='r')
+plt.xlabel('phase (deg)')
+plt.savefig(os.path.join(savedir,'hdc_hist_'+cxa.name+'.png'))
+
+
+plt.figure()
+plt.title('FC2')
+plt.hist(fc2,100,density=True)
+plt.xticks([-np.pi,-np.pi/2,0,np.pi/2,np.pi],[-180,-90,0,90,180])
+plt.xlim([-np.pi,np.pi])
+plt.plot([0,0],[0,0.5],color='k')
+plt.plot([np.pi/2,np.pi/2],[0,0.5],color='g')
+plt.plot([3*np.pi/4,3*np.pi/4],[0,0.5],color='r')
+plt.plot([-3*np.pi/4,-3*np.pi/4],[0,0.5],color='r')
+plt.xlabel('phase (deg)')
+plt.savefig(os.path.join(savedir,'fc2_hist_'+cxa.name+'.png'))
+
+
+
+plt.figure()
+plt.title('EPG')
+plt.hist(epg,100,density=True)
+plt.xticks([-np.pi,-np.pi/2,0,np.pi/2,np.pi],[-180,-90,0,90,180])
+plt.xlim([-np.pi,np.pi])
+plt.plot([0,0],[0,0.5],color='k')
+plt.xlabel('phase (deg)')
+plt.savefig(os.path.join(savedir,'epg_hist_'+cxa.name+'.png'))
+
+
+
+#%% Example hDeltaC and FC2
+
+cxa = all_flies['hDeltaC_FC2'][2].cxa
+jumps = cxa.get_jumps()
+fc2 = cxa.pdat['phase_fsb1_ch1']
+hdc = cxa.pdat['phase_fsb2_ch2'].squeeze()
+amp = np.mean(cxa.pdat['wedges_fsb2_ch2'],axis=1)
+amp = (amp-np.mean(amp))/np.std(amp)
+heading = cxa.ft2['ft_heading'].to_numpy()
+t= np.arange(0,len(fc2))/10
+ins = cxa.ft2['instrip'].to_numpy().astype(float)
+
+dot = np.cos(ug.circ_subtract(hdc,fc2))
+plt.figure(figsize=(16.88,2.69))
+plt.scatter(t,fc2,color=colours[2,:],s=3)
+plt.scatter(t,hdc,color=colours[1,:],s=3)
+
+plt.fill_between(t,ins*0-4.5, ins*.5-4.5,color=[1,.2,.2],linewidth=0)
+plt.scatter(t[jumps[:,1]],np.ones(len(jumps))*.5-4.5,color='k',marker='*',s=30)
+plt.xlim([1100,1400])
+plt.yticks([-np.pi,-np.pi/2,0,np.pi/2,np.pi],[-180,-90,0,90,180])
+
+plt.savefig(os.path.join(savedir,'ExamplePhase_timecourse'+cxa.name+'.pdf'))
+
+
+
+#%% Pre air offsets
+plt.close('all')
+dchoice = 'FC2'
+data = all_flies[dchoice] 
+for d in data:
+    cxa = data[d].cxa
+    cxa.get_jumps()
+    tphase = cxa.pdat['phase_fsb_upper']
+    heading = cxa.ft2['ft_heading'].to_numpy()
+    teb = cxa.pdat['phase_eb']
+    ins = cxa.ft2['instrip'].to_numpy()
+    mfc1 = cxa.ft2['mfc1_stpt'].to_numpy()
+    mstart = np.where(mfc1>0)[0][0]
+    istart  = np.where(ins>0)[0][0]
+    dx = np.arange(mstart,istart)
+    offset = ug.circ_subtract(tphase,teb)
+    
+    x = np.arange(0,len(dx))
+    h_offset = stats.circmean(ug.circ_subtract(teb,heading),low=-np.pi,high=np.pi)
+    
+    teb = ug.circ_subtract(teb,h_offset)
+    tphase = ug.circ_subtract(tphase,h_offset)
+    
+    plt.figure()
+    plt.subplot(1,2,1)
+    plt.scatter(teb[dx],tphase[dx],c=x,s=5)    
+    plt.xlim([-np.pi,np.pi])
+    plt.ylim([-np.pi,np.pi])
+    plt.plot([-np.pi,np.pi],[-np.pi,np.pi],color='r')
+    
+    plt.subplot(1,2,2)
+    plt.scatter(teb[dx[-1]:],tphase[dx[-1]:],color='k',s=1,alpha=.2)    
+    plt.xlim([-np.pi,np.pi])
+    plt.ylim([-np.pi,np.pi])
+    plt.plot([-np.pi,np.pi],[-np.pi,np.pi],color='r')
+    plt.plot([0,0],[-np.pi,np.pi],color='r')
+    
+    plt.title(cxa.side)
+    # allo_downwind = ug.circ_subtract(teb,h_offset+np.pi)
+   # cxa.plot_traj_arrow_new(['eb','fsb_upper'],a_sep=5,colours =np.array([[0,0,0],[0,0,1]]))
+    plt.figure()
+    plt.subplot(1,2,1)
+    plt.scatter(heading[dx],ug.circ_subtract(teb[dx],tphase[dx]),color='k',s=5)
+    plt.xlim([-np.pi,np.pi])
+    plt.ylim([-np.pi,np.pi])
+    plt.plot([-np.pi,np.pi],[-np.pi,np.pi],color='r')
+    plt.plot([0,np.pi],[-np.pi,0],linestyle='--',color='r')
+    plt.plot([-np.pi,0],[0,np.pi],linestyle='--',color='r')
+
+    plt.ylabel('eb - fsb')
+    plt.subplot(1,2,2)
+    plt.scatter(heading[dx[-1]:],ug.circ_subtract(teb[dx[-1]:],tphase[dx[-1]:]),color='k',s=2,alpha=.3)
+    plt.xlim([-np.pi,np.pi])
+    plt.ylim([-np.pi,np.pi])
+    plt.plot([-np.pi,np.pi],[-np.pi,np.pi],color='r')
+    plt.plot([0,np.pi],[-np.pi,0],linestyle='--',color='r')
+    plt.plot([-np.pi,0],[0,np.pi],linestyle='--',color='r')
+    plt.xlabel('heading')
+    # plt.scatter(x,teb[dx],color='k',s=5)
+    # plt.scatter(x,tphase[dx],color='b',s=5)
+    # plt.ylim([-np.pi,np.pi])
+    
+    # x2 = np.arange(0,len(tphase))
+    # plt.figure()
+    # plt.scatter(x2[dx[-1]:],teb[dx[-1]:],color='k',s=5)
+    # plt.scatter(x2[dx[-1]:],tphase[dx[-1]:],color='b',s=5)
+    # plt.ylim([-np.pi,np.pi])
+    # plt.scatter(x,offset[dx],color='k',s=5)
+    # plt.scatter(x,allo_downwind[dx],color='b',s=5)
+    
+#%% Dual colour - with EPG
+#plt.close('all')
+dchoice = 'hDeltaC_FC2_EPG'
+data = all_flies[dchoice] 
+for d in data:
+    cxa = data[d].cxa
+    jumps = cxa.get_jumps()
+    tphase = cxa.pdat['phase_fsb1_ch1']
+    tphase2 = cxa.pdat['phase_fsb2_ch2']
+    heading = cxa.ft2['ft_heading'].to_numpy()
+    teb = cxa.pdat['phase_eb_ch1']
+    ins = cxa.ft2['instrip'].to_numpy()
+    mfc1 = cxa.ft2['mfc1_stpt'].to_numpy()
+    mstart = np.where(mfc1>0)[0][0]
+    istart  = np.where(ins>0)[0][0]
+    dx = np.arange(mstart,istart)
+    # dx = np.array([],dtype='int')
+    # for j in jumps:
+    #     dx = np.append(dx,np.arange(j[1],j[2]))
+    offset = ug.circ_subtract(tphase,teb)
+    
+    x = np.arange(0,len(dx))
+    h_offset = stats.circmean(ug.circ_subtract(teb,heading),low=-np.pi,high=np.pi)
+    
+    teb = ug.circ_subtract(teb,h_offset)
+    tphase = ug.circ_subtract(tphase,h_offset)
+    tphase2 = ug.circ_subtract(tphase2,h_offset)
+    
+    plt.figure()
+    plt.subplot(2,2,1)
+    plt.scatter(teb[dx],tphase[dx],color='k',s=5)
+    plt.xlim([-np.pi,np.pi])
+    plt.ylim([-np.pi,np.pi])
+    plt.plot([-np.pi,np.pi],[-np.pi,np.pi],color='r')
+    plt.plot([0,np.pi],[-np.pi,0],linestyle='--',color='r')
+    plt.plot([-np.pi,0],[0,np.pi],linestyle='--',color='r')
+    plt.xlabel('epg')
+    plt.ylabel('fc2')
+
+    plt.subplot(2,2,2)
+    plt.scatter(teb[dx],tphase2[dx],color='k',s=5)
+    plt.xlim([-np.pi,np.pi])
+    plt.ylim([-np.pi,np.pi])
+    plt.plot([-np.pi,np.pi],[-np.pi,np.pi],color='r')
+    plt.plot([0,np.pi],[-np.pi,0],linestyle='--',color='r')
+    plt.plot([-np.pi,0],[0,np.pi],linestyle='--',color='r')
+    plt.xlabel('epg')
+    plt.ylabel('hdc')
+    
+    plt.subplot(2,2,3)
+    plt.scatter(tphase2[dx],tphase[dx],color='k',s=5)
+    plt.xlim([-np.pi,np.pi])
+    plt.ylim([-np.pi,np.pi])
+    plt.plot([-np.pi,np.pi],[-np.pi,np.pi],color='r')
+    plt.plot([0,np.pi],[-np.pi,0],linestyle='--',color='r')
+    plt.plot([-np.pi,0],[0,np.pi],linestyle='--',color='r')
+    plt.xlabel('hdc')
+    plt.ylabel('fc2')
+    
+    # plt.figure()
+    # plt.subplot(2,2,1)
+    # plt.scatter(teb[dx[-1]:],tphase[dx[-1]:],color='k',s=1,alpha=.2)
+    # plt.xlim([-np.pi,np.pi])
+    # plt.ylim([-np.pi,np.pi])
+    # plt.plot([-np.pi,np.pi],[-np.pi,np.pi],color='r')
+    # plt.plot([0,np.pi],[-np.pi,0],linestyle='--',color='r')
+    # plt.plot([-np.pi,0],[0,np.pi],linestyle='--',color='r')
+    # plt.xlabel('epg')
+    # plt.ylabel('fc2')
+
+    # plt.subplot(2,2,2)
+    # plt.scatter(teb[dx[-1]:],tphase2[dx[-1]:],color='k',s=1,alpha=.2)
+    # plt.xlim([-np.pi,np.pi])
+    # plt.ylim([-np.pi,np.pi])
+    # plt.plot([-np.pi,np.pi],[-np.pi,np.pi],color='r')
+    # plt.plot([0,np.pi],[-np.pi,0],linestyle='--',color='r')
+    # plt.plot([-np.pi,0],[0,np.pi],linestyle='--',color='r')
+    # plt.xlabel('epg')
+    # plt.ylabel('hdc')
+    
+    # plt.subplot(2,2,3)
+    # plt.scatter(tphase2[dx[-1]:],tphase[dx[-1]:],color='k',s=1,alpha=.2)
+    # plt.xlim([-np.pi,np.pi])
+    # plt.ylim([-np.pi,np.pi])
+    # plt.plot([-np.pi,np.pi],[-np.pi,np.pi],color='r')
+    # plt.plot([0,np.pi],[-np.pi,0],linestyle='--',color='r')
+    # plt.plot([-np.pi,0],[0,np.pi],linestyle='--',color='r')
+    # plt.xlabel('hdc')
+    # plt.ylabel('fc2')
+    
+    # plt.figure()
+    # plt.subplot(1,2,1)
+    # plt.scatter(heading,ug.circ_subtract(teb,tphase2),s=1,color='k')
+    # plt.xlim([-np.pi,np.pi])
+    # plt.ylim([-np.pi,np.pi])
+    # plt.plot([-np.pi,np.pi],[-np.pi,np.pi],color='r')
+    # plt.plot([0,np.pi],[-np.pi,0],linestyle='--',color='r')
+    # plt.plot([-np.pi,0],[0,np.pi],linestyle='--',color='r')
+    
+    # plt.subplot(1,2,2)
+    # plt.scatter(heading,ug.circ_subtract(teb,tphase),s=1,color='k')
+    # plt.xlim([-np.pi,np.pi])
+    # plt.ylim([-np.pi,np.pi])
+    # plt.plot([-np.pi,np.pi],[-np.pi,np.pi],color='r')
+    # plt.plot([0,np.pi],[-np.pi,0],linestyle='--',color='r')
+    # plt.plot([-np.pi,0],[0,np.pi],linestyle='--',color='r')
+#%% Dual colour - without EPG
+plt.close('all')
+dchoice = 'hDeltaC_FC2'
+data = all_flies[dchoice] 
+for d in data:
+    cxa = data[d].cxa
+    cxa.get_jumps()
+    tphase = cxa.pdat['phase_fsb1_ch1']
+    tphase2 = cxa.pdat['phase_fsb2_ch2'].squeeze()
+    heading = cxa.ft2['ft_heading'].to_numpy()
+    #teb = cxa.pdat['phase_eb_ch1']
+    ins = cxa.ft2['instrip'].to_numpy()
+    mfc1 = cxa.ft2['mfc1_stpt'].to_numpy()
+    mstart = np.where(mfc1>0)[0][0]
+    istart  = np.where(ins>0)[0][0]
+    dx = np.arange(mstart,istart)
+    #offset = ug.circ_subtract(tphase,teb)
+    
+    x = np.arange(0,len(dx))
+    #h_offset = stats.circmean(ug.circ_subtract(teb,heading),low=-np.pi,high=np.pi)
+    
+    #teb = ug.circ_subtract(teb,h_offset)
+    #tphase = ug.circ_subtract(tphase,h_offset)
+    #tphase2 = ug.circ_subtract(tphase2,h_offset)
+    
+    plt.figure()
+    plt.subplot(1,2,1)
+    plt.scatter(tphase2[dx],tphase[dx],color='k',s=5)
+    plt.xlim([-np.pi,np.pi])
+    plt.ylim([-np.pi,np.pi])
+    plt.plot([-np.pi,np.pi],[-np.pi,np.pi],color='r')
+    plt.plot([0,np.pi],[-np.pi,0],linestyle='--',color='r')
+    plt.plot([-np.pi,0],[0,np.pi],linestyle='--',color='r')
+    plt.xlabel('hdc')
+    plt.ylabel('fc2')
+    plt.subplot(1,2,2)
+    plt.scatter(tphase2[dx[-1]:],tphase[dx[-1]:],color='k',s=1,alpha=.2)
+    plt.xlim([-np.pi,np.pi])
+    plt.ylim([-np.pi,np.pi])
+    plt.plot([-np.pi,np.pi],[-np.pi,np.pi],color='r')
+    plt.plot([0,np.pi],[-np.pi,0],linestyle='--',color='r')
+    plt.plot([-np.pi,0],[0,np.pi],linestyle='--',color='r')
+    plt.xlabel('hdc')
+    plt.ylabel('fc2')
+    
+    plt.figure()
+    plt.subplot(1,2,1)
+    plt.scatter(heading[dx],ug.circ_subtract(tphase2[dx],tphase[dx]),color='k',s=5)
+    plt.xlim([-np.pi,np.pi])
+    plt.ylim([-np.pi,np.pi])
+    plt.plot([-np.pi,np.pi],[-np.pi,np.pi],color='r')
+    plt.plot([0,np.pi],[-np.pi,0],linestyle='--',color='r')
+    plt.plot([-np.pi,0],[0,np.pi],linestyle='--',color='r')
+    plt.xlabel('hdc')
+    plt.ylabel('fc2')
+    plt.subplot(1,2,2)
+    plt.scatter(heading[dx[-1]:],ug.circ_subtract(tphase2[dx[-1]:],tphase[dx[-1]:]),color='k',s=1,alpha=.2)
+    plt.xlim([-np.pi,np.pi])
+    plt.ylim([-np.pi,np.pi])
+    plt.plot([-np.pi,np.pi],[-np.pi,np.pi],color='r')
+    plt.plot([0,np.pi],[-np.pi,0],linestyle='--',color='r')
+    plt.plot([-np.pi,0],[0,np.pi],linestyle='--',color='r')
+    plt.xlabel('heading')
+    plt.ylabel('hdc-fc2')

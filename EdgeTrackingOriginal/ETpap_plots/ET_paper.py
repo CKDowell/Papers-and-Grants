@@ -13,13 +13,15 @@ import pandas as pd
 from Utilities.utils_general import utils_general as ug
 from scipy.stats import circmean, circstd
 from Utilities.utils_plotting import uplt
+from scipy import stats
+from rdp import rdp
 #%%
 class ET_paper:
     def __init__(self,datadir,regions=['eb','fsb_upper','fsb_lower']):
         self.cxa = CX_a(datadir,regions= regions,denovo=False)
         self.colours =np.array([[81,156,204],[84,39,143],[0,0,0],[237,30,36],[6,149,207]])/255
-        self.colours2 =np.array([[106,207,246],[237,30,36],[168,170,173],[6,149,207]])/255
-    def example_trajectory(self,tstart,tend,boxes=[]):
+        self.colours2 =np.array([[106,207,246],[237,30,36],[229,229,229],[6,149,207]])/255
+    def example_trajectory(self,tstart,tend,boxes=[],heat=False,col=None,cmap='coolwarm',cmin=-1,cmax=1):
         colours = np.array([[106,207,246],[237,30,36],[204,204,204],[6,149,207]])/255
         ft2 = self.cxa.ft2
         x = ft2['ft_posx'].to_numpy()
@@ -33,7 +35,9 @@ class ET_paper:
         st  = np.where(inplume)[0][0]
         x = x-x[st-1]
         y = y-y[st-1]
-          
+        ends = np.where(inplume)[0][-1]
+        yend = y[ends]
+        
         x = x[tdx]
         y = y[tdx]
         ins = ins[tdx]
@@ -68,7 +72,7 @@ class ET_paper:
         #ax.scatter(x[inplume],y[inplume],color=[0.5, 0.5, 0.5])
         
         yj = y[jn]
-        yj = np.append(yj,y[-1])
+        yj = np.append(yj,np.min([y[-1],yend]))
         plt.fill()
         
         plume_cents = [-630,-420,-210,0,210,420,630]
@@ -111,11 +115,23 @@ class ET_paper:
 
         # plot in and out plume
         
-        
-        plt.plot(x,y,color=colours[0,:],linewidth=0.5)
-        pstart,psize = ug.find_blocks(inplume)
-        for i,p in enumerate(pstart):
-            plt.plot(x[p:p+psize[i]],y[p:p+psize[i]],color=colours[1,:],linewidth=0.75)
+        if heat:
+            
+            ax = plt.gca()
+            hplot = col.copy()
+            hplot[hplot<cmin] = cmin
+            hplot[hplot>cmax] = cmax
+            hplot[0] = cmin
+            hplot[-1] = cmax
+            hplot = hplot[tdx]
+            uplt.coloured_line(x,y,hplot,ax,cmap=cmap)
+            
+            
+        else:
+            plt.plot(x,y,color=colours[0,:],linewidth=0.5)
+            pstart,psize = ug.find_blocks(inplume)
+            for i,p in enumerate(pstart):
+                plt.plot(x[p:p+psize[i]],y[p:p+psize[i]],color=colours[1,:],linewidth=0.75)
 
         plt.xlim(xlims)
         plt.ylim(ylims)
@@ -138,8 +154,8 @@ class ET_paper:
         
         
         plt.show()
-    def example_trajectory_arrows(self,tstart,tend,colours,samp_period=10,boxes=[],regions=['eb','fsb_upper']):
-        self.example_trajectory(tstart,tend)
+    def example_trajectory_arrows(self,tstart,tend,colours,scale=10,samp_period=10,boxes=[],regions=['eb','fsb_upper'],heat=False,col=None,cmap='coolwarm',cmin=-1,cmax=1):
+        self.example_trajectory(tstart,tend,heat=heat,col=col,cmap=cmap,cmin=cmin,cmax=cmax)
         ft2 = self.cxa.ft2
         x = ft2['ft_posx'].to_numpy()
         y = ft2['ft_posy'].to_numpy()
@@ -154,7 +170,7 @@ class ET_paper:
           
         x = x[tdx]
         y = y[tdx]
-        scale =10
+        
         for ir,r in enumerate(regions):
             tphase = self.cxa.pdat['offset_'+r+'_phase'].to_numpy()[tdx]
             dx = np.arange(0,len(tphase),samp_period*10)
@@ -190,7 +206,8 @@ class ET_paper:
         st  = np.where(inplume)[0][0]
         x = x-x[st-1]
         y = y-y[st-1]
-          
+        ends = np.where(inplume)[0][-1]
+        yend = y[ends]
         x = x[tdx]
         y = y[tdx]
         pva = pva[tdx]
@@ -226,7 +243,10 @@ class ET_paper:
         #ax.scatter(x[inplume],y[inplume],color=[0.5, 0.5, 0.5])
         
         yj = y[jn]
-        yj = np.append(yj,y[-1])
+        print(yend)
+        print(y[-1])
+        
+        yj = np.append(yj,np.min(y[-1],yend))
         plt.fill()
         tj = 0
         x1 = 0+5+tj
@@ -629,6 +649,74 @@ class ET_paper:
             
         return amps
         
+    def trajectory_mean_variable(self,variable,side_mult=False, bins=100,time_threshold=60,time_threshold2=0,min_inplume=5):    
+        jumps = self.cxa.get_jumps(time_threshold=time_threshold,time_threshold2=time_threshold2)
+        inplume = jumps[:,1]-jumps[:,0]
+        jdx = inplume>=min_inplume
+        jumps = jumps[jdx,:]
+        if len(variable.shape)==1:
+            variable  = variable[:,np.newaxis]
+            
+            
+        retvar = np.zeros((bins,variable.shape[1],len(jumps)))
+        levvar = np.zeros((bins,variable.shape[1],len(jumps)))
+        varnum = variable.shape[1]
+        if side_mult:
+            variable = variable*-self.cxa.side
+        retxy = np.zeros((bins,2,len(jumps)))
+        levxy = np.zeros((bins,2,len(jumps)))
+        
+        
+        newtime = np.linspace(0,1,bins)
+        
+        ins = self.cxa.ft2['instrip']
+        inst = np.where(ins)[0][0]
+        x = self.cxa.ft2['ft_posx'].to_numpy()
+        y = self.cxa.ft2['ft_posy'].to_numpy()
+        #x,y = self.cxa.fictrac_repair(x,y)
+        x = x-x[inst]
+        y = y-y[inst]
+        x = -x*self.cxa.side
+                
+        for i,j in enumerate(jumps):
+            bdx = np.arange(j[0],j[1])
+            adx = np.arange(j[1],j[2])
+            
+            tx = x-x[j[1]-1]
+            ty = y-y[j[1]-1]
+            
+            rx = tx[adx]
+            ry = ty[adx]
+            
+            lx = tx[bdx]
+            ly = ty[bdx]
+            
+            oldtime = np.linspace(0,1,len(rx))
+            retxy[:,0,i] = np.interp(newtime,oldtime,rx)
+            retxy[:,1,i] = np.interp(newtime,oldtime,ry)
+            
+            oldtime = np.linspace(0,1,len(lx))
+            levxy[:,0,i] = np.interp(newtime,oldtime,lx)
+            levxy[:,1,i] = np.interp(newtime,oldtime,ly)
+            
+            for iv in range(varnum):
+                rv = variable[adx,iv]
+                lv = variable[bdx,iv]
+        
+                
+                oldtime = np.linspace(0,1,len(rv))
+                retvar[:,iv,i] = np.interp(newtime,oldtime,rv)
+
+                oldtime = np.linspace(0,1,len(lv))
+                levvar[:,iv,i] = np.interp(newtime,oldtime,lv)
+           
+                
+            
+            
+        trajs = np.append(levxy,retxy,axis=0)
+        outvar = np.append(levvar,retvar,axis=0)
+        return trajs,outvar
+        
         
     def trajectory_mean(self,bins = 100,regions=['eb','fsb_upper','ft_heading'],time_threshold=60,time_threshold2=0,min_inplume=5):
         
@@ -685,10 +773,12 @@ class ET_paper:
             levxy[:,0,i] = np.interp(newtime,oldtime,lx)
             levxy[:,1,i] = np.interp(newtime,oldtime,ly)
             for ip,p in enumerate(regions):
-                if ip<2:
-                    phase = self.cxa.pdat['offset_'+p+'_phase'].to_numpy()
-                else:
+                if p=='ft_heading':
                     phase = self.cxa.ft2[p].to_numpy()
+                else:    
+                    phase = self.cxa.pdat['offset_'+p+'_phase'].to_numpy()
+                
+                    
                     
                     
                 phase = -phase*self.cxa.side
@@ -703,12 +793,12 @@ class ET_paper:
                 
                 
                 oldtime = np.linspace(0,1,len(rp))
-                retphase[:,ip,i] = np.interp(newtime,oldtime,rp)
+                retphase[:,ip,i] = ug.circ_interp(newtime,oldtime,rp)
                 retamp[:,0,ip,i] = np.interp(newtime,oldtime,rpva)
                 retamp[:,1,ip,i] = np.interp(newtime,oldtime,rmnflr)
                 
                 oldtime = np.linspace(0,1,len(lp))
-                levphase[:,ip,i] = np.interp(newtime,oldtime,lp)
+                levphase[:,ip,i] = ug.circ_interp(newtime,oldtime,lp)
                 levamp[:,0,ip,i] = np.interp(newtime,oldtime,lpva)
                 levamp[:,1,ip,i] = np.interp(newtime,oldtime,lmnflr)
                 
@@ -719,14 +809,14 @@ class ET_paper:
         amps = np.append(levamp,retamp,axis=0)
         return phases,trajs,amps
     
-    def plt_tmp(self,scalar=1,bins=100,phase_num=10):
+    def plt_tmp(self,scalar=1,bins=100,phase_num=10,regions=['eb','fsb_upper'],colours=np.array([[0,0,0],[81,156,205]])/255):
         colours2 = self.colours2
-        phases,trajs = self.trajectory_mean(bins=bins)
+        phases,trajs,amps = self.trajectory_mean(bins=bins,regions=regions)
         tmean =np.mean(trajs,axis=2)
         pmean = circmean(phases,low=-np.pi,high=np.pi,axis=2)
+        #trajs = trajs-trajs[bins,:]
         
-        
-        pedge = tmean[0,0]
+        pedge = tmean[bins,0]
         ymn = np.min(np.min(trajs[0,1,:]))
         ymx = np.max(trajs[-1,1,:])
         
@@ -752,13 +842,13 @@ class ET_paper:
         c[0,:] = [0,0,0]
         p_points = np.linspace(0,bins*2-1,phase_num*2,dtype='int')
         for i,p in enumerate(p_points):
-            for r in range(2):
+            for r in range(len(regions)):
                 tp = pmean[p,r]
                 tx =tmean[p,0]
                 ty = tmean[p,1]
                 tx2 = np.sin(tp)*scalar+tx
                 ty2 = np.cos(tp)*scalar+ty
-                plt.plot([tx,tx2],[ty,ty2],color=self.colours[r,:])
+                plt.plot([tx,tx2],[ty,ty2],color=colours[r,:])
                 
     def plt_tmp_all(self,scalar =1,bins=100,phase_num=10):
         colours2 = self.colours2
@@ -820,7 +910,184 @@ class ET_paper:
         #         ty2 = np.cos(tp)*scalar+ty
         #         plt.plot([tx,tx2],[ty,ty2],color=self.colours[r,:])
 
+    def turn2plume_metrics(self,regions=['eb','fsb_upper'],epsilon=1.25,run_len=5,plotting=False,to_plume=True,jumps='jumps'):
+        """
+            Function decomposes returns into RDP defined linear segments. Gets the point where the turn
+            to plume happens and extracts metrics in a .5 s window prior to that event
+            Metrics are the phase, bump amplitude, pva 
+            
+            Strategy:
+                1. Use RDP algo to decompose traj into turns
+                2. Identify turns towards the plume followed by runs above a threshold length
+                3. If animal is still then advance turn point to the next time they move
+                4. Extract parameters:
+                    - Phases
+                    - PVA
+                    - Amp
+                    - Heading
+        
+        """
+        
+        
+        cxa = self.cxa
+        # Get entries and exits
+        if jumps =='jumps':
+            jumps = cxa.get_jumps()
+        elif jumps=='all':
+            jumps = cxa.get_entries_exits_like_jumps()
+            
+        # Get metrics
+        heading = cxa.ft2['ft_heading'].to_numpy()
+        x = cxa.ft2['ft_posx'].to_numpy()
+        y = cxa.ft2['ft_posy'].to_numpy()
+        x,y = ug.fictrac_repair(x, y)
+        xy = np.append(x[:,np.newaxis],y[:,np.newaxis],axis=1)
+        xy[:,0] = xy[:,0]*-cxa.side
+        phases = np.zeros((len(heading),len(regions)))
+        pvas = np.zeros_like(phases)
+        amps  = np.zeros_like(phases)
+        for i,r in enumerate(regions):
+            phases[:,i] = cxa.pdat['offset_'+r+'_phase'].to_numpy()*-cxa.side
+            pvas[:,i] = ug.get_pvas(cxa.pdat['wedges_'+r])
+            amps[:,i] = np.mean(cxa.pdat['wedges_'+r],axis=1)
+            
+       # pvas = (pvas-np.mean(pvas,axis=0))/np.std(pvas,axis=0) # zscore pvas
+        u =ug()
+        _,_,dd = u.get_velocity(x,y,cxa.pv2['relative_time'].to_numpy())
+        still = ug.get_still(1,np.abs(dd))
+        first_data = True
+        
+        if to_plume:
+            rmult = 1 
+        else:
+            rmult = -1
+        
+        for i,j in enumerate(jumps):
+            dx = np.arange(j[1],j[2])
+            
+            tp = phases[dx,:]
+            tpv = pvas[dx,:]
+            ta = amps[dx,:]
+            th = heading[dx]
+            txy = xy[dx]
+            txy = txy-txy[0,:]
+            ts = still[dx]
+            tb,tbs = ug.find_blocks(ts)
+            tbe = tb+tbs-1
+            
+            rdx = rdp(txy,epsilon,return_mask=True)
+            rdxdx = dx[rdx]
+            rxy = txy[rdx]
+            rxyd = np.diff(rxy,axis=0)
+            rdxw = np.where(rdx)[0]
+            rdist = np.sqrt(np.sum(rxyd**2,axis=1))
+            
+            rang = np.angle(rxyd[:,1]+rxyd[:,0]*1j)
+            
+            if plotting:
+                plt.figure()
+                plt.subplot(1,2,1)
+                plt.plot(txy[:,0],txy[:,1],color='k')
+                plt.plot(rxy[:,0],rxy[:,1],color='r')
+                plt.scatter(txy[ts>0,0],txy[ts>0,1],color='b')
+                plt.gca().set_aspect('equal')
+            turncount = -1
+            for ri,r in enumerate(rang):
+                if plotting:
+                    plt.subplot(1,2,1)
+                    plt.text(rxy[ri,0],rxy[ri,1],str(np.round(rdist[ri],decimals=1))+'  '+str(np.round(180*r/np.pi)))
+                rd = rdist[ri]
+                
+                # Selection criteria 
+                # negative r - animal needs to turn to the plume
+                # run length needs to exceed a threshold
+                # cannot be the first run - this is special since it is the exit trajectory
+                
+                if r*rmult<0 and rd>=run_len and ri>0: # minimum run length and number of runs, multiply by to plume or not
+                    turncount +=1
+                    # refine ri
+                    
+                    rrxy = rxy[ri,:]
+                    tebdiff = tbe-rdxw[ri]
+                    tebdiff = tebdiff[tebdiff<=0]
 
+                    if ts[rdxw[ri]]>0: # check if animal is stil
+                        instill = True
+                        tebdiff = tbe-rdxw[ri] # difference between rdp timepoint and end of still block
+                        tbe2 = tbe[tebdiff>=0] # f
+                        ri2 = tbe2[0]
+                    elif len(tebdiff)==0:
+                        instill = False
+                    else:
+                    
+                        last_still = tbe[np.argmax(tebdiff)]
+                        dt = np.max(tebdiff)
+                        lsxy = txy[last_still]
+                        
+                        still_d = np.sqrt(np.sum((rrxy-lsxy)**2))
+                        if dt>-5 and still_d<1:
+                            ri2 = last_still
+                            instill= True
+        
+                        else:
+                            instill=False
+                    
+                    rtime = rdxw[ri]
+                    if plotting:
+                        plt.plot(rxy[ri:ri+2,0],rxy[ri:ri+2,1],color='g')
+                        plt.subplot(1,2,2)
+                        plt.plot(ts,color='k')
+                        plt.plot(tp[:,1],color='b')
+                        plt.plot([rtime,rtime],[-np.pi,np.pi],color='r')
+                    
+                    if instill:
+                        if plotting:
+                            plt.plot([ri2,ri2],[-np.pi,np.pi],color='g')
+                            #plt.scatter(txy[ri2,0],txy[ri2,1],color='g')
+                        
+                        dx_r = np.arange(ri2-5,ri2)
+                    else:
+                        dx_r = np.arange(rtime-5,rtime)
+                        
+                   # print(i,ri,instill)
+                    
+                    # Now gather data
+                    if first_data:
+                        ophase = stats.circmean(tp[dx_r,:],low=-np.pi,high=np.pi,axis=0)[np.newaxis,:]
+                        opva = np.mean(tpv[dx_r,:],axis=0)[np.newaxis,:]
+                        oamp = np.mean(ta[dx_r,:],axis=0)[np.newaxis,:]
+                        oheading = stats.circmean(th[dx_r],low=-np.pi,high=np.pi)
+                        index = np.array([i,ri,turncount,rdxdx[ri]])[np.newaxis,:]
+                        rdpang = np.array(r)
+                        first_data =False
+                    else:
+                        ophase = np.append(ophase,
+                                  stats.circmean(tp[dx_r,:],low=-np.pi,high=np.pi,axis=0)[np.newaxis,:],axis=0)
+                        opva = np.append(opva,
+                                         np.mean(tpv[dx_r,:],axis=0)[np.newaxis,:],axis=0)
+                        oamp = np.append(oamp,
+                                        np.mean(ta[dx_r,:],axis=0)[np.newaxis,:],axis=0)
+                        oheading = np.append(oheading,stats.circmean(th[dx_r],low=-np.pi,high=np.pi))
+                        index = np.append(index,np.array([i,ri,turncount,rdxdx[ri]])[np.newaxis,:],axis=0)
+                        rdpang = np.append(rdpang,r)
+                        
+        if first_data:
+            ophase = np.array([])
+            opva= np.array([])
+            oamp =  np.array([])
+            oheading = np.array([])
+            index = np.array([])
+            rdpang = np.array([])
+        output_dictionary = {
+            'index': index,
+            'phase': ophase,
+            'pva': opva,
+            'mean_amp': oamp,
+            'heading': oheading,
+            'rdpang': rdpang
+                             }
+            
+        return output_dictionary
             
     def distance_plume_boundary(self):
         # Iterate through all exits and get max distance from plume boundary

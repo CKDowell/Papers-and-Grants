@@ -1503,7 +1503,7 @@ plt.yticks(np.arange(0,1,.2),fontsize=15)
 plt.savefig(os.path.join(savedir,'FluorRecoveryAllEntries.png'))
 plt.savefig(os.path.join(savedir,'FluorRecoveryAllEntries.pdf'))
 #%% fluorescence recovery timecourse ACV pulses
-
+savedir = r'Y:\Presentations\2026\05_ForVanessaAndLarry'
 colours = np.array([[81,61,204],#hDeltaJ
                     [49,99,125],#hDeltaC
                     [60, 181, 136],#hDeltaH
@@ -1512,10 +1512,12 @@ colours = np.array([[81,61,204],#hDeltaJ
 plt.close('all')
 minlen = 50
 x = np.arange(0,600)/10
-dchoices = ['hDeltaJ_ACV_pulses','hDeltaC_ACV_pulses','hDeltaH_ACV_pulses']
+dchoices = ['hDeltaJ_ACV_pulses','hDeltaC_ACV_pulses']
+            #,'hDeltaH_ACV_pulses']
 
 for di,d in enumerate(dchoices):
     data = all_flies[d]
+    print(len(data))
     meandat = np.zeros((600,len(data)))
     for f in data:
         cxa = data[f].cxa
@@ -1527,8 +1529,10 @@ for di,d in enumerate(dchoices):
         all_js = np.zeros((600,len(jumps)))
         for i,j in enumerate(jumps):
             dx = np.arange(j[1],j[2])
+            dxnorm = np.arange(j[0],j[1])
+            nrm = np.mean(amp[dxnorm[-5:]])
            # plt.plot(amp[dx],color='k',alpha=0.3)
-            tamp = amp[dx]
+            tamp = amp[dx]-nrm
             amplen  = np.min([600,len(tamp)])
             all_js[:amplen,i] = tamp[:amplen]
             
@@ -1538,15 +1542,16 @@ for di,d in enumerate(dchoices):
     
     plt.plot(x[:200],meandat[:200,:],color=colours[di,:],alpha=0.3)
     plt.plot(x[:200],np.nanmean(meandat[:200,:],1),color=colours[di,:],alpha=1,linewidth=3)
-plt.ylabel('mean dF/F',fontsize=15)
-plt.xlabel('time from plume exit (s)',fontsize=15)
+plt.ylabel('mean dF/F0',fontsize=15)
+plt.xlabel('time from odour offset (s)',fontsize=15)
 plt.xlim([0,20])
 plt.xticks(np.arange(0,21,5),fontsize=15)
 plt.yticks(np.arange(0,1,.2),fontsize=15)
+plt.ylim([-.1,.6])
 plt.savefig(os.path.join(savedir,'FluorRecoveryACV_pulses.png'))
 plt.savefig(os.path.join(savedir,'FluorRecoveryACV_pulses.pdf'))
 #%% oct pulses
-
+savedir = r'Y:\Presentations\2026\05_ForVanessaAndLarry'
 colours = np.array([[81,61,204],#hDeltaJ
                     [49,99,125],#hDeltaC
                     [60, 181, 136],#hDeltaH
@@ -1555,10 +1560,12 @@ colours = np.array([[81,61,204],#hDeltaJ
 plt.close('all')
 minlen = 50
 x = np.arange(0,600)/10
-dchoices = ['hDeltaJ_Oct_pulses','hDeltaC_Oct_pulses','hDeltaH_Oct_pulses']
+dchoices = ['hDeltaJ_Oct_pulses','hDeltaC_Oct_pulses']#,
+            #'hDeltaH_Oct_pulses']
 
 for di,d in enumerate(dchoices):
     data = all_flies[d]
+    print(len(data))
     meandat = np.zeros((600,len(data)))
     for f in data:
         cxa = data[f].cxa
@@ -1571,7 +1578,9 @@ for di,d in enumerate(dchoices):
         for i,j in enumerate(jumps):
             dx = np.arange(j[1],j[2])
            # plt.plot(amp[dx],color='k',alpha=0.3)
-            tamp = amp[dx]
+            dxnorm = np.arange(j[0],j[1])
+            nrm = np.mean(amp[dxnorm[-5:]])
+            tamp = amp[dx]-nrm
             amplen  = np.min([600,len(tamp)])
             all_js[:amplen,i] = tamp[:amplen]
             
@@ -1582,10 +1591,11 @@ for di,d in enumerate(dchoices):
     plt.plot(x[:200],meandat[:200,:],color=colours[di,:],alpha=0.3)
     plt.plot(x[:200],np.nanmean(meandat[:200,:],1),color=colours[di,:],alpha=1,linewidth=3)
 plt.ylabel('mean dF/F',fontsize=15)
-plt.xlabel('time from plume exit (s)',fontsize=15)
+plt.xlabel('time from odour offset (s)',fontsize=15)
 plt.xlim([0,20])
 plt.xticks(np.arange(0,21,5),fontsize=15)
 plt.yticks(np.arange(0,1,.2),fontsize=15)
+plt.ylim([-.1,.6])
 plt.savefig(os.path.join(savedir,'FluorRecoveryOct_pulses.png'))
 plt.savefig(os.path.join(savedir,'FluorRecoveryOct_pulses.pdf'))
 

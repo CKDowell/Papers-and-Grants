@@ -658,7 +658,7 @@ for i in range(2):
     plt.plot(x,pltall[:,i,:],color = tc[i,:],alpha=0.5)
     plt.plot(x,pltmean[:,i],color = tc[i,:],linewidth=4)
     tstat = stats.ttest_ind(pltall[0,i,:],pltall[1,i,:])
-    pval = ug.round_to_sig_figs(tstat.pvalue,2)
+    pval = ug.round_to_sig_figs(np.array([tstat.pvalue]),2)
     plt.text(np.mean(x),0.23,str(pval),horizontalalignment='center')
     x+=1.5
 plt.ylim([0,0.26]);
@@ -685,7 +685,7 @@ for i in range(2):
     plt.plot(x,pltall[:,i,:],color = tc[i,:],alpha=0.5)
     plt.plot(x,pltmean[:,i],color = tc[i,:],linewidth=4)
     tstat = stats.ttest_ind(pltall[0,i,:],pltall[1,i,:])
-    pval = ug.round_to_sig_figs(tstat.pvalue,2)
+    pval = ug.round_to_sig_figs(np.array([tstat.pvalue]),2)
     plt.text(np.mean(x),0.55,str(pval),horizontalalignment='center')
     x+=1.5
 plt.ylim([0,0.6]);
