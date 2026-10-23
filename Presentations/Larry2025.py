@@ -1526,6 +1526,7 @@ for di,d in enumerate(dchoices):
         jumps = cxa.get_entries_exits_like_jumps()
         jumplen = jumps[:,2]-jumps[:,1]
         jumps = jumps[jumplen>minlen]
+        print(j[:,1]-j[:,0])
         all_js = np.zeros((600,len(jumps)))
         for i,j in enumerate(jumps):
             dx = np.arange(j[1],j[2])

@@ -37,7 +37,7 @@ datadirs = [
 "Y:\Data\FCI\Hedwig\FC2_maimon2\\240514\\f1\\Trial2",
 "Y:\Data\FCI\Hedwig\FC2_maimon2\\241104\\f1\\Trial5",
 "Y:\Data\FCI\Hedwig\FC2_maimon2\\241106\\f1\\Trial2",
-#r"Y:\Data\FCI\Hedwig\FC2_maimon2\250128\f1\Trial4" left out of original six to be consistent
+r"Y:\Data\FCI\Hedwig\FC2_maimon2\250128\f1\Trial4" # left out of original six to be consistent
 ]
 #%% Load all data
     
@@ -468,8 +468,10 @@ plt.figure()
 pm = circmean(pltmean,high=180,low=-180,axis=2,nan_policy='omit')
 zorder = [1,3,0]
 for i in range(2):
-    plt.plot(pltmean[:,i,:],t,color = colours[i,:],alpha=0.3,zorder=zorder[i])
-    plt.plot(pm[:,i],t,color=colours[i,:],zorder=zorder[i])
+    #plt.plot(pltmean[:,i,:],t,color = colours[i,:],alpha=0.3,zorder=zorder[i])
+    for i2 in  range(pltmean.shape[2]):
+        plt.scatter(pltmean[:,i,i2],t,color=colours[i,:],alpha=.3,s = 10)
+    plt.plot(pm[:,i],t,color=colours[i,:],zorder=zorder[i],linewidth=2)
  
     
     
